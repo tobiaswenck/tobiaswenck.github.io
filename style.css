@@ -176,12 +176,9 @@ p {
 }
 
 .card-wrapper {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(2, 1fr);
-    grid-column-gap: .5rem;
-    grid-row-gap: .5rem;
-    width: auto;
+    display: flex;
+    flex-direction: column;
+    width: 80%;
     margin-top: 3rem;
 }
 
@@ -193,6 +190,7 @@ p {
     display: flex;
     flex-direction: column;
     text-align: left;
+    margin-bottom: 3rem;
 }
 
 .card i {
@@ -279,6 +277,17 @@ p {
 @media only screen and (min-width: 600px) {
     .container {
         width: 80vw;
+        
+    }
+
+    .card-wrapper {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+        grid-column-gap: .5rem;
+        grid-row-gap: .5rem;
+        width: auto;
+        margin-top: 3rem;
     }
 }
 
