@@ -146,10 +146,6 @@ p {
     margin-bottom: 3rem;
 }
 
-.hero a i {
-    
-}
-
 .technologies {
     background-color: var(--section-color);
     width: 100vw;
@@ -291,9 +287,55 @@ p {
     }
 }
 
-@media only screen and (min-width: 1200px) {
+@media only screen and (min-width: 1400px) {
     .container {
         width: 70vw;
+    }
+
+    .technologies {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+
+    .technologies i {
+        font-size: 6rem;
+    }
+
+    .icon-wrapper {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .card-wrapper {
+        display: flex;
+        flex-direction: row;
+        width: auto;
+        margin-top: 3rem;
+    }
+
+    .card {
+        width: 20%;
+    }
+
+    .button-wrapper {
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .button-wrapper a {
+        margin-left: auto;
+        margin-right: auto;
+        transform: scale(1.2);
+    }
+
+    .button-wrapper a:hover {
+        transform: scale(1);
     }
 }
   
