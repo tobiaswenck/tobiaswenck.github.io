@@ -72,6 +72,7 @@ h5 {
 
 p {
     font-weight: 200;
+    font-size: 1.2rem;
 }
 
 .container {
@@ -136,9 +137,8 @@ p {
     height: auto;
 }
 
-.hero p {
-    margin-top: 3rem;
-    margin-bottom: 3rem;
+.hero-paragraph-wrapper {
+    margin: 3rem 0;
 }
 
 .hero a {
@@ -270,6 +270,108 @@ p {
     transform: scale(0.1, 1);
   }
 
+  .hidden {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 1s, transform 1s;
+}
+.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+  .gtkm-wrapper {
+    /*outline: 1px solid green;*/
+    width: 80%;
+    height: auto;
+    margin-top: 3rem;
+
+  }
+
+  .scroll-section {
+    margin-bottom: calc(var(--padding) * 2) ;
+    width: 100%;
+    height: auto;
+  }
+
+  .scroll-section svg {
+    margin-left: 1rem;
+  }
+
+  .gtkm-content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+
+  }
+
+  .gtkm-content h3 {
+    margin-right: 10rem;
+    /*font-size: 2rem;*/
+    /*text-shadow: 5px 5px 70px #EAEAEA;*/
+  }
+
+  .greeting-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+footer {
+    align-items: center;
+    justify-content: center;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--border-color);
+    height: auto;
+}
+
+.footer-wrapper {
+    align-items: center;
+    justify-content: center;
+    display: flex;
+    flex-direction: column;
+    margin: 2rem 0;
+}
+
+.btt-button {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    width: 40px;
+    height: 40px;
+    background-color: var(--section-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 5px;
+    border-radius: 40px;
+}
+
+.btt-button i{
+    font-size: 2rem;
+    color: var(--font-color);
+}
+
+.btt-button:hover {
+    transform: scale(1.1);
+    transition: transform ease-in-out .1s;
+
+}
+
+.lock:hover .icon-unlock,
+.lock .icon-lock {
+    display: none;
+}
+.lock:hover .icon-lock {
+    display: inline;
+}
+
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-in {
+      animation: wipe-enter 1s infinite;
+    }
+  }
+
 @media only screen and (min-width: 600px) {
     .container {
         width: 80vw;
@@ -331,11 +433,12 @@ p {
     .button-wrapper a {
         margin-left: auto;
         margin-right: auto;
-        transform: scale(1.2);
     }
 
-    .button-wrapper a:hover {
-        transform: scale(1);
+    .scroll-section {
+        text-align: left;
+        align-items: left;
     }
+
 }
   

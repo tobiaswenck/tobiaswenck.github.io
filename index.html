@@ -3,18 +3,22 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bootstrap demo</title>
+    <title>Portfolio Tobias Wenck</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    	<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.2.0/css/all.css">
+    <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.2.0/css/all.css">
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
-      <section class="container navbar">
+      <section class="container navbar" id="top">
         <h3>Tobias Wenck</h3>
       </section>
       <section class="container hero">
         <img src="img/tobi_circle_bw.png" alt="Portrait Picture of Tobias Wenck">
-        <p>Hi, I'm Tobias &#128075;</p>
+        <div class="hero-paragraph-wrapper">
+          <p>Hi, I'm Tobias &#128075;</p>
+          <p id="upperCompanyName"></p>
+        </div>
+        
         <h1>
           Building beautiful applications with a creative mind.
         </h1>
@@ -71,6 +75,96 @@
       </section>
       <section class="container portfolio">
         <h2>Get to know me</h2>
+
+        <div class="gtkm-wrapper">
+          <section class="hidden scroll-section gtkm-content">
+            <h3>2011</h3>
+            <p>I started my programming Journey at the age of 14 in 
+              computer science class. This is also when I was first 
+              introduced to HTML and CSS and the concept of markup languages. Instead of signing up for a third 
+              Language in 8th grade, I decided early to step into the realm of programming.</p>
+          </section>
+          <section class="hidden scroll-section">
+            <svg width="5" height="70">
+                <line x1="0" y1="0" x2="0" y2="70" stroke="#7A7A7A" stroke-width="3" />
+            </svg>
+          </section>
+          <section class="hidden scroll-section gtkm-content">
+            <h3>2013</h3>
+            <p>At the age of 16 I learned the basics of Java and Object Oriented Programming in 
+              general. Around this time my interest in the matter grew so big, I started experimenting 
+              with small projects on my own, such as making clones of retro video games I used to 
+              play with my Dad.
+            </p>
+          </section>
+          <section class="hidden scroll-section">
+            <svg width="5" height="70">
+                <line x1="0" y1="0" x2="0" y2="70" stroke="#7A7A7A" stroke-width="3" />
+            </svg>
+          </section>
+          <section class="hidden scroll-section gtkm-content">
+            <h3>2016</h3>
+            <p>After I graduated from school with “Abitur”, I decided to spend a volutary 
+              social year at the Kreisfeuerwehrverband Steinburg, doing youth development work. 
+              Since I’ve been a volunteer firefighter for 2 years at this point, the decision 
+              just came natural to me.</p>
+          </section>
+          <section class="hidden scroll-section">
+            <svg width="5" height="70">
+                <line x1="0" y1="0" x2="0" y2="70" stroke="#7A7A7A" stroke-width="3" />
+            </svg>
+          </section>
+          <section class="hidden scroll-section gtkm-content">
+            <h3>2017</h3>
+            <p>At the end of the year I started studying "(B.Sc) Angewandte Informatik" at the University 
+              of Applied Sciences in Flensburg. Although I started with lots of motivation into this,
+              it quickly became clear that a University is not the right learning environment for me. 
+              So I started getting more into learning on my own, until i eventually dropped out at the 
+              beginning of the COVID Lockdowns.
+            </p>
+          </section>
+          <section class="hidden scroll-section">
+            <svg width="5" height="70">
+                <line x1="0" y1="0" x2="0" y2="70" stroke="#7A7A7A" stroke-width="3" />
+            </svg>
+          </section>
+          <section class="hidden scroll-section gtkm-content">
+            <h3>2020</h3>
+            <p>In 2020 I decided to take a big leap into something, I've been dreaming of since childhood: 
+              I've Throughout my time as a producer I still kept using my skillset, be it 
+              creating my own cover art, or my online store to sell beats. </p>
+          </section>
+          <section class="hidden scroll-section">
+            <svg width="5" height="70">
+                <line x1="0" y1="0" x2="0" y2="70" stroke="#7A7A7A" stroke-width="3" />
+            </svg>
+          </section>
+          <section class="hidden scroll-section gtkm-content">
+            <h3>2023</h3>
+            <div class="greeting-wrapper">
+              <p>At the beginning of this year I started to get back into programming and 
+                UI Design with the Goal of eventually getting back into the industry. I started with a 
+                couple projects on my own and compiled them all in this portfolio. </p>
+              <br>
+              <p id="lowerCompanyName"></p>
+            </div>
+          </section>
+          <section class="hidden scroll-section">
+            <svg width="5" height="70">
+                <line x1="0" y1="0" x2="0" y2="70" stroke="#7A7A7A" stroke-width="3" />
+            </svg>
+          </section>
+          <section class="hidden scroll-section gtkm-content">
+            <h3>P.S.&nbsp;&nbsp;&nbsp;</h3>
+            <p>You can check out my GitHub as well as my Design Portfolio down below. I also provided a 
+              stackshare.io link listing every programming language/technology I know. I would be happy
+              to hear back from you via my E-Mail, which is also linked down below. 
+            </p>
+          </section>
+        </div>
+        
+      
+
         <div class="button-wrapper">
           <a href="https://stackshare.io/tobiaswenck/development-and-design" target="_blank" class="button">
             <span>stackshare.io</span>
@@ -90,6 +184,16 @@
           </a>
         </div>
       </section>
+      <footer class="container">
+        <div class="footer-wrapper">
+          <p>&copy; 2022 Tobias Wenck</p>
+          <p>Design & Implementation - Tobias Wenck</p>
+        </div>
+      </footer>
+      <a href="#top" class="btt-button lock">
+        <i class="fa-solid fa-angle-up icon-unlock"></i>
+        <i class="fa-solid fa-angles-up icon-lock"></i>
+      </a>
       <script type="text/javascript" src="main.js"></script>
   </body>
 </html>
