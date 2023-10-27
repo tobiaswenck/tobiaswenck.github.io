@@ -51,19 +51,3 @@ function handleScroll() {
 
 window.addEventListener("scroll", handleScroll);
 
-// Function to get URL parameter by name
-function getURLParameter(name) {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get(name);
-}
-
-// Get the "variable" parameter from the URL
-const companyName = getURLParameter('co');
-
-// Update the content of the <p> element with the variable value
-const lowerVariable = document.getElementById('lowerCompanyName');
-lowerVariable.textContent = `Which brings us to this point today: Dear folks at ${companyName}, I would love a chance at an
-interview with you, not just to convice you of my abilities as a programmer, but myself as a person.`;
-
-const upperVariable = document.getElementById('upperCompanyName');
-upperVariable.textContent = `And this is part of my Application at ${companyName}`;
