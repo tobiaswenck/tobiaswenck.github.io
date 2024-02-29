@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
-
+/* Setting the variables for the project, 
+   including basic tag changes */
+   
 :root {
 
 }
@@ -124,6 +126,8 @@ p {
     border-bottom: 1px solid var(--border-color);
 }
 
+/*Hero Section*/
+
 .hero {
     height: auto;
     display: flex;
@@ -146,20 +150,7 @@ p {
     margin-bottom: 3rem;
 }
 
-.technologies {
-    background-color: var(--section-color);
-    width: 100vw;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-top: var(--padding);
-    padding-bottom: var(--padding);
-    text-align: center;
-}
-
-.technologies i {
-    font-size: 8rem;
-}
+/*Below the fold Cards*/
 
 .about-me {
     height: auto;
@@ -204,6 +195,23 @@ p {
     position: static;
     align-self: end;
     flex: 0;
+}
+
+/* Technologies Section */
+
+.technologies {
+    background-color: var(--section-color);
+    width: 100vw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: var(--padding);
+    padding-bottom: var(--padding);
+    text-align: center;
+}
+
+.technologies i {
+    font-size: 8rem;
 }
 
 .portfolio {
@@ -366,11 +374,13 @@ footer {
     display: inline;
 }
 
-  @media (prefers-reduced-motion: no-preference) {
+/* Media Queries for desktop sizes */
+
+@media (prefers-reduced-motion: no-preference) {
     .scroll-in {
       animation: wipe-enter 1s infinite;
     }
-  }
+}
 
 @media only screen and (min-width: 600px) {
     .container {

@@ -1,0 +1,385 @@
+:root {
+  --font-color: #7A7A7A;
+  --base-color: #161616;
+  --section-color: #1A1A1A;
+  --secondary-color: #54595F;
+  --border-color: #242424;
+
+  --gradient-light: #EAEAEA;
+  --gradient-dark: #565656;
+
+  --green: #25F4EE;
+  --red: #FE2C55;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap');
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: #161616;
+    background-image: url(https://kawsar.design/wp-content/uploads/2023/02/BG-Tx-1.svg);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-attachment: fixed;
+    font-family: 'Roboto', sans-serif;
+    letter-spacing: .8px;
+    color: var(--gradient-light);
+}
+
+main {
+    width: 80vw;
+    height: auto;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding-top: 10rem;
+    padding-bottom: 10rem;
+}
+
+.btn {
+  margin-bottom: 5rem;
+}
+
+/* Styles for the button container (anchor tag) */
+.button-container {
+  position: relative;
+  height: 40px;
+  width: 200px;
+  background-color: var(--base-color); /* Replace with your desired button background color */
+  border: 1px solid var(--border-color);
+  color: var(--gradient-light); /* Replace with your desired button text color */
+  text-align: center;
+  line-height: 40px;
+  text-decoration: none;
+  overflow: hidden; /* Ensure the pseudo-element doesn't overflow */
+  transition: all 0.2s ease; /* Adding a transition for the box-shadow property */
+}
+
+/* Hover effect: show the box */
+.button-container:hover {
+  box-shadow: 10px -10px 0 0 var(--green), -10px 10px 0 0 var(--red); /* Adjust the size and color of the "popped out" box here */
+  background-color: var(--gradient-light);
+  color: #000;
+  border: 1px solid transparent;
+}
+
+
+
+
+
+
+
+.container{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.container a{
+  position: relative;
+  width: 200px;
+  height: 40px;
+  display: inline-block;
+}
+
+.container a::before,
+.container a::after
+{
+  content:'';
+  position: absolute;
+  inset: 0;
+  transition: all 0.2s ease;
+}
+
+.container a:nth-child(1):before,
+.container a:nth-child(1):after
+{
+ background: linear-gradient(200deg, var(--green), var(--red))
+}
+
+.container a:hover:before
+{
+  inset: -3px;  
+}
+
+.container a:hover:after
+{
+  inset: -3px;  
+  filter: blur(10px);
+}
+
+.container a span{
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: inline-block;
+  background: var(--base-color);
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--gradient-light);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+.button-three, .button-three::after {
+  width: 200px;
+  height: 40px;
+  border: 1px solid var(--border-color);
+  color: var(--gradient-light);
+  background-color: var(--base-color);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-decoration: none;
+  transition: all .3s ease;
+}
+
+.button-three::after {
+  --move1: inset(50% 50% 50% 50%);
+  --move2: inset(31% 0 40% 0);
+  --move3: inset(39% 0 15% 0);
+  --move4: inset(45% 0 40% 0);
+  --move5: inset(45% 0 6% 0);
+  --move6: inset(14% 0 61% 0);
+  clip-path: var(--move1);
+  content: 'Hover Me';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: block;
+}
+
+.button-three:hover::after {
+  animation: glitch 1s;
+  text-shadow: 10 10px 10px black;
+  animation-timing-function: steps(2, end);
+  text-shadow: -3px -3px 0px var(--green), 3px 3px 0px var(--red);
+  border: 3px solid rgb(0, 255, 213);
+}
+
+.button-three:hover {
+  text-shadow: -1px -1px 0px var(--green), 1px 1px 0px var(--red);
+}
+
+.button-three:hover {
+  border: 1px solid rgb(0, 255, 213);
+  box-shadow: 0px 10px 10px -10px rgb(0, 255, 213);
+}
+
+
+
+.btn-four {
+	width: 200px;
+  height: 40px;
+  border: 1px solid var(--border-color);
+  color: var(--gradient-light);
+  background-color: var(--base-color);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-decoration: none;
+  transition: all .3s ease;
+}
+.btn-four span {
+	transition: all 0.3s;
+}
+.btn-four::before {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 1;
+	opacity: 0;
+	transition: all 0.3s;
+	border-top-width: 1px;
+	border-bottom-width: 1px;
+	border-top-style: solid;
+	border-bottom-style: solid;
+	border-top-color: var(--green);
+	border-bottom-color: var(--red);
+	transform: scale(0.1, 1);
+}
+.btn-four:hover span {
+	letter-spacing: 2px;
+  
+}
+.btn-four:hover::before {
+	opacity: 1;	
+	transform: scale(1, 1);	
+}
+.btn-four::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 1;
+	transition: all 0.3s;
+	/*background-color: var(--base-color);*/
+}
+.btn-four:hover::after {
+	opacity: 0;	
+	transform: scale(0.1, 1);
+  background-color: var(--gradient-light);
+}
+
+
+
+.btn-five {
+  color: white;
+  width: 200px;
+  height: 40px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-decoration: none;
+  transition: all 0.3s;
+  /*border: 1px solid var(--border-color);*/
+  span {
+    transition: all 0.3s;
+    transform: scale(1, 1);
+  }
+}
+
+.btn-five::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+	height: 100%;
+  bottom: 0;
+	left: 0;
+	z-index: 1;
+  transition: all 0.3s;
+  border: 1px solid var(--green);
+}
+
+.btn-five::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+	height: 100%;
+  bottom: 0;
+	left: 0;
+	z-index: 1;
+  transition: all 0.3s;
+  border: 1px solid var(--border-color);
+}
+
+.btn-five:hover::after {
+  animation-name: rotatecw;
+  animation-duration: 2s;
+  border: 1px solid var(--red);
+  font-size: 3rem;
+}
+.btn-five:hover::before {
+  animation-name: rotateccw; 
+  animation-duration: 3s;
+}
+.btn-five:hover::after, .btn-five:hover::before {
+  left: 64px;
+  width: 64px;
+  
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+
+@keyframes rotatecw {
+    from {transform: rotate(0deg);}
+    to {transform: rotate(360deg);}
+}
+
+@keyframes rotateccw {
+    from {transform: rotate(0deg);}
+    to {transform: rotate(-360deg);}
+}
+
+@keyframes glitch {
+  0% {
+    clip-path: var(--move1);
+    transform: translate(0px,-10px);
+  }
+
+  10% {
+    clip-path: var(--move2);
+    transform: translate(-10px,10px);
+  }
+
+  20% {
+    clip-path: var(--move3);
+    transform: translate(10px,0px);
+  }
+
+  30% {
+    clip-path: var(--move4);
+    transform: translate(-10px,10px);
+  }
+
+  40% {
+    clip-path: var(--move5);
+    transform: translate(10px,-10px);
+  }
+
+  50% {
+    clip-path: var(--move6);
+    transform: translate(-10px,10px);
+  }
+
+  60% {
+    clip-path: var(--move1);
+    transform: translate(10px,-10px);
+  }
+
+  70% {
+    clip-path: var(--move3);
+    transform: translate(-10px,10px);
+  }
+
+  80% {
+    clip-path: var(--move2);
+    transform: translate(10px,-10px);
+  }
+
+  90% {
+    clip-path: var(--move4);
+    transform: translate(-10px,10px);
+  }
+
+  100% {
+    clip-path: var(--move1);
+    transform: translate(0);
+  }
+}
+
