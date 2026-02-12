@@ -3,29 +3,275 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Portfolio Tobias Wenck</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.2.0/css/all.css">
-    <link rel="stylesheet" href="style.css">
+    <title>Dashboard</title>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Geist Mono from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              'geist': ['"Geist Mono"', 'monospace'],
+            },
+            colors: {
+              'dash-bg': '#1C1C1E',
+              'card-bg': '#2A2A2C',
+              'card-border': '#3A3A3C',
+              'muted': '#686868',
+              'muted-light': '#8E8E93',
+            },
+          },
+        },
+      }
+    </script>
+
+    <style>
+      /* Hide scrollbar but keep scrolling */
+      body { scrollbar-width: none; }
+      body::-webkit-scrollbar { display: none; }
+
+      /* Card gradient hover */
+      .dash-card {
+        --card-color: #fff;
+        border: 1px solid transparent;
+        background:
+          linear-gradient(#2A2A2C, #2A2A2C) padding-box,
+          linear-gradient(#3A3A3C, #3A3A3C) border-box;
+        transition: background 0.4s ease;
+      }
+      .dash-card:hover {
+        background:
+          linear-gradient(110deg, var(--card-color) -42.46%, #252525 60.99%) padding-box,
+          linear-gradient(var(--card-color), var(--card-color)) border-box;
+      }
+    </style>
   </head>
-  <body>
-      <section class="container navbar" id="top">
-        <h3>Tobias Wenck</h3>
-      </section>
-      <section class="container hero">
-        <img src="img/tobi_circle_bw.png" alt="Portrait Picture of Tobias Wenck">
-        <div class="hero-paragraph-wrapper">
-          <p>Hi, I'm Tobias &#128075;</p>
+
+  <body class="font-geist bg-dash-bg text-white min-h-screen relative overflow-x-hidden">
+
+    <!-- SVG Pattern - left edge, repeating vertically -->
+    <div class="fixed top-0 left-0 h-full w-[195px] z-0 pointer-events-none" aria-hidden="true"
+         style="background: url('img/pattern.svg') repeat-y top left; background-size: 195px auto;">
+    </div>
+
+    <!-- Main content -->
+    <main class="relative z-10 min-h-screen flex flex-col pl-[240px] pr-16 py-16 mx-auto" style="max-width: 1400px;">
+
+      <!-- Header: Hey + Date/Time -->
+      <header class="flex items-start justify-between mb-14">
+        <h1 class="text-4xl font-bold tracking-tight">Hey!&nbsp;👋</h1>
+        <div class="text-right text-muted-light text-sm leading-snug">
+          <div id="date-display">11.02.2026</div>
+          <div><span id="time-display">00:00:00</span> Uhr</div>
         </div>
-        
-        <h1>
-          Building beautiful applications with a creative mind.
-        </h1>
-        <a href="#about-me" class="button btn-one">
-          <span>Learn More</span>
-          <i class="fa-solid fa-angles-down"></i>
+      </header>
+
+      <!-- Search bar -->
+      <form id="search-form" class="flex items-center gap-4 mb-12">
+        <input
+          id="search-input"
+          type="text"
+          autocomplete="off"
+          class="flex-1 h-11 rounded-full bg-card-bg border border-card-border px-5 text-sm text-white placeholder-muted focus:outline-none focus:border-muted-light transition-colors"
+          placeholder=""
+        >
+        <button
+          type="submit"
+          class="h-11 px-5 rounded-full bg-card-bg border border-card-border flex items-center gap-2 text-sm text-muted-light hover:border-muted-light transition-colors cursor-pointer"
+        >
+          <!-- Google icon inline -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path opacity="0.4" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12Z" fill="#686868"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16C13.8638 16 15.4299 14.7252 15.874 13H12C11.4477 13 11 12.5523 11 12C11 11.4477 11.4477 11 12 11H17C17.5523 11 18 11.4477 18 12C18 15.3137 15.3137 18 12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C13.6566 6 15.1579 6.67267 16.2426 7.75736C16.6332 8.14788 16.6332 8.78105 16.2426 9.17157C15.8521 9.5621 15.219 9.5621 14.8284 9.17157C14.1035 8.44662 13.1048 8 12 8Z" fill="#686868"/>
+          </svg>
+          Search
+        </button>
+      </form>
+
+      <!-- Bookmark cards grid -->
+      <section class="grid grid-cols-2 lg:grid-cols-3 gap-5 mb-auto">
+
+        <!-- Card: YouTrack — add your URL below -->
+        <a href="" target="_blank" rel="noopener" class="dash-card group rounded-2xl p-6 flex flex-col justify-between min-h-[150px]" style="--card-color: #E20F86">
+          <div class="flex items-start justify-between">
+            <span class="text-white font-semibold text-lg">YouTrack</span>
+            <svg class="text-muted opacity-60 group-hover:opacity-100 transition-opacity" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 17H17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7H13.5M10.5 17H7C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7H10.5" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted text-xs">Letzter Zugriff</div>
+            <div class="text-muted text-xs">26.02.2025</div>
+          </div>
         </a>
+
+        <!-- Card: GitLab — add your URL below -->
+        <a href="" target="_blank" rel="noopener" class="dash-card group rounded-2xl p-6 flex flex-col justify-between min-h-[150px]" style="--card-color: #E24329">
+          <div class="flex items-start justify-between">
+            <span class="text-white font-semibold text-lg">GitLab</span>
+            <svg class="text-muted opacity-60 group-hover:opacity-100 transition-opacity" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 17H17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7H13.5M10.5 17H7C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7H10.5" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted text-xs">Letzter Zugriff</div>
+            <div class="text-muted text-xs">26.02.2025</div>
+          </div>
+        </a>
+
+        <!-- Card: Suite — add your URL below -->
+        <a href="" target="_blank" rel="noopener" class="dash-card group rounded-2xl p-6 flex flex-col justify-between min-h-[150px]" style="--card-color: #00427F">
+          <div class="flex items-start justify-between">
+            <span class="text-white font-semibold text-lg">Suite</span>
+            <svg class="text-muted opacity-60 group-hover:opacity-100 transition-opacity" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 17H17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7H13.5M10.5 17H7C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7H10.5" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted text-xs">Letzter Zugriff</div>
+            <div class="text-muted text-xs">26.02.2025</div>
+          </div>
+        </a>
+
+        <!-- Card: Canny — add your URL below -->
+        <a href="" target="_blank" rel="noopener" class="dash-card group rounded-2xl p-6 flex flex-col justify-between min-h-[150px]" style="--card-color: #525DF9">
+          <div class="flex items-start justify-between">
+            <span class="text-white font-semibold text-lg">Canny</span>
+            <svg class="text-muted opacity-60 group-hover:opacity-100 transition-opacity" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 17H17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7H13.5M10.5 17H7C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7H10.5" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted text-xs">Letzter Zugriff</div>
+            <div class="text-muted text-xs">26.02.2025</div>
+          </div>
+        </a>
+
+        <!-- Card: Mobbin — add your URL below -->
+        <a href="" target="_blank" rel="noopener" class="dash-card group rounded-2xl p-6 flex flex-col justify-between min-h-[150px]" style="--card-color: #FFFFFF">
+          <div class="flex items-start justify-between">
+            <span class="text-white font-semibold text-lg">Mobbin</span>
+            <svg class="text-muted opacity-60 group-hover:opacity-100 transition-opacity" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 17H17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7H13.5M10.5 17H7C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7H10.5" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted text-xs">Letzter Zugriff</div>
+            <div class="text-muted text-xs">26.02.2025</div>
+          </div>
+        </a>
+
+        <!-- Card: Rail Network — add your URL below -->
+        <a href="" target="_blank" rel="noopener" class="dash-card group rounded-2xl p-6 flex flex-col justify-between min-h-[150px]" style="--card-color: #006AFF">
+          <div class="flex items-start justify-between">
+            <span class="text-white font-semibold text-lg">Rail Network</span>
+            <svg class="text-muted opacity-60 group-hover:opacity-100 transition-opacity" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 17H17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7H13.5M10.5 17H7C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7H10.5" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted text-xs">Letzter Zugriff</div>
+            <div class="text-muted text-xs">26.02.2025</div>
+          </div>
+        </a>
+
+        <!-- Card: Docmost — add your URL below -->
+        <a href="" target="_blank" rel="noopener" class="dash-card group rounded-2xl p-6 flex flex-col justify-between min-h-[150px]" style="--card-color: #0B60D8">
+          <div class="flex items-start justify-between">
+            <span class="text-white font-semibold text-lg">Docmost</span>
+            <svg class="text-muted opacity-60 group-hover:opacity-100 transition-opacity" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 17H17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7H13.5M10.5 17H7C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7H10.5" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted text-xs">Letzter Zugriff</div>
+            <div class="text-muted text-xs">26.02.2025</div>
+          </div>
+        </a>
+
+        <!-- Card: Localhost — add your URL below -->
+        <a href="" target="_blank" rel="noopener" class="dash-card group rounded-2xl p-6 flex flex-col justify-between min-h-[150px]" style="--card-color: #FFFFFF">
+          <div class="flex items-start justify-between">
+            <span class="text-white font-semibold text-lg">Localhost</span>
+            <svg class="text-muted opacity-60 group-hover:opacity-100 transition-opacity" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 17H17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7H13.5M10.5 17H7C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7H10.5" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted text-xs">Letzter Zugriff</div>
+            <div class="text-muted text-xs">26.02.2025</div>
+          </div>
+        </a>
+
+        <!-- Card: YouTube — add your URL below -->
+        <a href="" target="_blank" rel="noopener" class="dash-card group rounded-2xl p-6 flex flex-col justify-between min-h-[150px]" style="--card-color: #FF0033">
+          <div class="flex items-start justify-between">
+            <span class="text-white font-semibold text-lg">YouTube</span>
+            <svg class="text-muted opacity-60 group-hover:opacity-100 transition-opacity" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13.5 17H17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7H13.5M10.5 17H7C4.23858 17 2 14.7614 2 12C2 9.23858 4.23858 7 7 7H10.5" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="#686868" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted text-xs">Letzter Zugriff</div>
+            <div class="text-muted text-xs">26.02.2025</div>
+          </div>
+        </a>
+
       </section>
-      <script type="text/javascript" src="main.js"></script>
+
+      <!-- Footer -->
+      <footer class="mt-12 flex items-center justify-center gap-1.5 text-muted text-xs">
+        <span>Made with</span>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6.18621 5.26615L3.61813 2.69266C3.27249 2.34628 3.2756 1.78158 3.6251 1.43136C3.97459 1.08113 4.53811 1.078 4.88375 1.42437L9.42534 5.93077C10.976 7.48471 11.8699 9.52165 10.1389 11.6266L9.95431 11.8116C8.59491 13.1738 6.39084 13.1738 5.0314 11.8116L3.17131 9.97414C2.82567 9.62776 2.83272 9.05913 3.18708 8.70405C3.523 8.36741 4.05042 8.34355 4.39884 8.63703M6.18621 5.26615L7.64985 6.73285M6.18621 5.26615C5.84058 4.91978 5.25824 4.92785 4.90233 5.28451C4.54642 5.64116 4.53811 6.21106 4.88375 6.55744L5.30833 6.98293M4.39884 8.63703L4.03412 8.2823C3.68847 7.93592 3.69679 7.366 4.0527 7.00935C4.4086 6.6527 4.96268 6.63654 5.30833 6.98293M4.39884 8.63703L5.05823 9.27828M4.39884 8.63703C4.41797 8.65313 4.43656 8.67022 4.45455 8.68824M5.30833 6.98293L6.34884 8.02564M7.07935 3.60298C7.177 2.7065 8.23873 1.77718 9.56447 2.41404C9.69035 2.47452 9.7901 2.58893 9.79127 2.72883C9.79308 2.95419 9.69414 3.23242 9.37704 3.41691C8.92344 3.68081 8.18039 4.68916 9.17229 5.68314" stroke="#686868" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>by Tobias Wenck</span>
+      </footer>
+
+    </main>
+
+    <!-- JavaScript: Clock + Search -->
+    <script>
+      // Live clock
+      function updateClock() {
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const yyyy = now.getFullYear();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+
+        document.getElementById('date-display').textContent = `${dd}.${mm}.${yyyy}`;
+        document.getElementById('time-display').textContent = `${hh}:${min}:${ss}`;
+      }
+      updateClock();
+      setInterval(updateClock, 1000);
+
+      // Google search
+      document.getElementById('search-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const q = document.getElementById('search-input').value.trim();
+        if (q) {
+          window.location.href = 'https://www.google.com/search?q=' + encodeURIComponent(q);
+        }
+      });
+    </script>
   </body>
 </html>

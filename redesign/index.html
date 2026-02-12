@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redesign</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="font-inter">
+    <div class="min-h-screen w-full relative bg-black">
+        <div class="absolute inset-0 z-0" style="background-image: 
+        linear-gradient(to right, #121212 1px, transparent 1px),
+        linear-gradient(to bottom, #121212 1px, transparent 1px);
+    background-size: 32px 32px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 80% at 0% 0%, #000 50%, transparent 90%);
+    mask-image: radial-gradient(ellipse 80% 80% at 0% 0%, #000 50%, transparent 90%);"></div>
+        
+        <section class="container navbar" id="top">
+            <h3>Tobias Wenck</h3>
+          </section>
+          <section class="container hero">
+            <img src="../img/tobi_circle_bw.png" alt="Portrait Picture of Tobias Wenck" style="z-index: 999;">
+            <div class="hero-paragraph-wrapper">
+              <p>Hi, I'm Tobias &#128075;</p>
+            </div>
+            
+            <h1>
+              Building beautiful applications with a creative mind.
+            </h1>
+            <!-- <a href="#about-me" class="button btn-one">
+              <span>Learn More</span>
+              <i class="fa-solid fa-angles-down"></i>
+            </a> -->
+          </section>
+
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html> 
