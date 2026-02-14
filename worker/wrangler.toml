@@ -1,0 +1,13 @@
+name = "linear-proxy"
+main = "src/index.js"
+compatibility_date = "2024-12-01"
+
+# ── Public vars ──
+# Restrict CORS to your dashboard origin.
+# Change this if your dashboard lives at a different URL.
+[vars]
+ALLOWED_ORIGIN = "https://tobiaswenck.github.io"
+
+# ── Secrets (set via CLI, never committed) ──
+# wrangler secret put LINEAR_API_KEY
+# → paste your lin_api_… key when prompted
