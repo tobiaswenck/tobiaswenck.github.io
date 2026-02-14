@@ -207,6 +207,44 @@
         animation: skeleton-pulse 1.5s ease-in-out infinite;
       }
 
+      /* Search prefix hints */
+      .prefix-hint {
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        color: #505058;
+        cursor: pointer;
+        padding: 3px 8px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        transition: color 0.2s ease, border-color 0.2s ease;
+        user-select: none;
+      }
+      .prefix-hint:hover {
+        color: #7e7e86;
+        border-color: rgba(255, 255, 255, 0.06);
+      }
+      .prefix-hint .prefix-key {
+        color: #7e7e86;
+        font-weight: 600;
+      }
+      .prefix-hint.active {
+        color: var(--hint-color, #7e7e86);
+        border-color: var(--hint-color, rgba(255, 255, 255, 0.1));
+      }
+      .prefix-hint.active .prefix-key {
+        color: var(--hint-color, #7e7e86);
+      }
+
+      /* Active prefix dot in search button */
+      .prefix-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+        transition: background 0.2s ease;
+      }
+
       /* Line clamp fallback */
       .line-clamp-2 {
         display: -webkit-box;
@@ -268,7 +306,7 @@
       </header>
 
       <!-- Search bar -->
-      <form id="search-form" class="flex items-center gap-3 mb-12 gs-hidden">
+      <form id="search-form" class="flex items-center gap-3 mb-3 gs-hidden">
         <input
           id="search-input"
           type="text"
@@ -278,7 +316,8 @@
         >
         <button
           type="submit"
-          class="search-btn h-10 px-4 rounded-lg flex items-center gap-2 text-[13px] text-muted-light cursor-pointer"
+          id="search-btn"
+          class="search-btn h-10 px-4 rounded-lg flex items-center gap-2 text-[13px] text-muted-light cursor-pointer whitespace-nowrap"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path opacity="0.4" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12Z" fill="currentColor"/>
@@ -287,6 +326,7 @@
           Search
         </button>
       </form>
+      <div id="search-hints" class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-12 gs-hidden"></div>
 
       <!-- Bookmark cards grid -->
       <section class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-auto" id="card-grid">
@@ -490,6 +530,11 @@
     </main>
 
     <script>
+      // ── Dev mode: bypass auth & gracefully handle API when running locally ──
+      const IS_LOCAL = location.protocol === 'file:'
+        || location.hostname === 'localhost'
+        || location.hostname === '127.0.0.1';
+
       // ── Auth constants ──
       const WORKER_URL = 'https://linear-proxy.tobiaswenck.workers.dev';
       const TOKEN_KEY = 'dash_token';
@@ -518,6 +563,10 @@
       function showApp() {
         document.getElementById('login-overlay').classList.add('hidden');
         document.querySelector('main').style.display = '';
+        if (IS_LOCAL) {
+          document.getElementById('logout-btn').title = 'Dev mode';
+          document.getElementById('logout-btn').style.borderColor = 'rgba(242,201,76,0.3)';
+        }
       }
 
       function showLogin(msg) {
@@ -571,7 +620,10 @@
       });
 
       // ── Logout ──
-      document.getElementById('logout-btn').addEventListener('click', logout);
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        if (IS_LOCAL) return; // no-op in dev mode
+        logout();
+      });
 
       // ── Clock ──
       function updateClock() {
@@ -585,11 +637,87 @@
       updateClock();
       setInterval(updateClock, 1000);
 
-      // ── Google search ──
+      // ── Smart search with prefixes ──
+      const SEARCH_PREFIXES = {
+        'gl':   { label: 'GitLab',   color: '#E24329', url: q => q ? `https://gitlab.dev.edith-bahn.de/search?search=${encodeURIComponent(q)}` : 'https://gitlab.dev.edith-bahn.de/' },
+        'yt':   { label: 'YouTube',  color: '#FF0033', url: q => q ? `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` : 'https://www.youtube.com/' },
+        'li':   { label: 'Linear',   color: '#5E6AD2', url: q => q ? `https://linear.app/search?q=${encodeURIComponent(q)}` : 'https://linear.app/' },
+        'fig':  { label: 'Figma',    color: '#A259FF', url: q => q ? `https://www.figma.com/files/search?query=${encodeURIComponent(q)}` : 'https://www.figma.com/files/recents-and-sharing/recently-viewed' },
+        'wiki': { label: 'Docmost',  color: '#0B60D8', url: q => q ? `https://wiki.intern.edith-bahn.de/search?q=${encodeURIComponent(q)}` : 'https://wiki.intern.edith-bahn.de/home' },
+        'gpt':  { label: 'ChatGPT',  color: '#10A37F', url: q => q ? `https://chatgpt.com/?q=${encodeURIComponent(q)}` : 'https://chatgpt.com/' },
+      };
+
+      const searchInput = document.getElementById('search-input');
+      const searchBtn = document.getElementById('search-btn');
+      const defaultBtnHTML = searchBtn.innerHTML;
+
+      // Build prefix hints
+      const hintsContainer = document.getElementById('search-hints');
+      Object.entries(SEARCH_PREFIXES).forEach(([key, cfg]) => {
+        const el = document.createElement('span');
+        el.className = 'prefix-hint';
+        el.dataset.prefix = key;
+        el.style.setProperty('--hint-color', cfg.color);
+        el.innerHTML = `<span class="prefix-key">${key}:</span> ${cfg.label}`;
+        el.addEventListener('click', () => {
+          searchInput.value = key + ': ';
+          searchInput.focus();
+          searchInput.dispatchEvent(new Event('input'));
+        });
+        hintsContainer.appendChild(el);
+      });
+
+      // Detect active prefix on input
+      function detectPrefix(value) {
+        const match = value.match(/^(\w+):\s*(.*)/);
+        if (match && SEARCH_PREFIXES[match[1].toLowerCase()]) {
+          return { key: match[1].toLowerCase(), query: match[2].trim() };
+        }
+        return null;
+      }
+
+      searchInput.addEventListener('input', () => {
+        const detected = detectPrefix(searchInput.value);
+
+        // Update button
+        if (detected) {
+          const cfg = SEARCH_PREFIXES[detected.key];
+          searchBtn.innerHTML = `<span class="prefix-dot" style="background:${cfg.color};"></span> ${cfg.label}`;
+          searchBtn.style.borderColor = cfg.color + '33';
+        } else {
+          searchBtn.innerHTML = defaultBtnHTML;
+          searchBtn.style.borderColor = '';
+        }
+
+        // Update hint highlights
+        hintsContainer.querySelectorAll('.prefix-hint').forEach(el => {
+          el.classList.toggle('active', detected?.key === el.dataset.prefix);
+        });
+      });
+
+      // Submit handler
       document.getElementById('search-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        const q = document.getElementById('search-input').value.trim();
-        if (q) window.location.href = 'https://www.google.com/search?q=' + encodeURIComponent(q);
+        const raw = searchInput.value.trim();
+        if (!raw) return;
+
+        const detected = detectPrefix(raw);
+        if (detected) {
+          const cfg = SEARCH_PREFIXES[detected.key];
+          window.location.href = cfg.url(detected.query);
+          return;
+        }
+
+        // Default: Google
+        window.location.href = 'https://www.google.com/search?q=' + encodeURIComponent(raw);
+      });
+
+      // Keyboard shortcut: "/" to focus search (when not already in an input)
+      document.addEventListener('keydown', (e) => {
+        if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+          e.preventDefault();
+          searchInput.focus();
+        }
       });
 
       // ── Linear Proxy (now with auth) ──
@@ -788,6 +916,15 @@
         if (errors.length === 2) {
           console.error('Linear proxy errors:', errors);
           const msg = errors[0];
+
+          // In local dev, CORS failures are expected — show a friendly message
+          if (IS_LOCAL) {
+            document.getElementById('linear-error-msg').textContent =
+              'Dev mode — Linear API unavailable (CORS). Push to live domain to test.';
+            showLinearState('error');
+            return;
+          }
+
           document.getElementById('linear-error-msg').textContent =
             msg.includes('401') || msg.includes('Unauthorized') || msg.includes('authentication')
               ? 'Linear API key is invalid. Check the worker secret.'
@@ -823,6 +960,12 @@
           { opacity: 0, y: 10 },
           { opacity: 1, y: 0, duration: 0.5 },
           '-=0.35'
+        );
+
+        tl.fromTo('#search-hints',
+          { opacity: 0, y: 6 },
+          { opacity: 1, y: 0, duration: 0.4 },
+          '-=0.3'
         );
 
         const cards = document.querySelectorAll('#card-grid .dash-card');
@@ -904,6 +1047,14 @@
 
       // ── Boot: check existing token ──
       document.addEventListener('DOMContentLoaded', () => {
+        if (IS_LOCAL) {
+          // Dev mode: skip auth entirely, show dashboard immediately
+          console.info('%c[DEV MODE]%c Running locally — auth bypassed, API calls may fail (CORS)',
+            'color:#F2C94C;font-weight:bold', 'color:inherit');
+          showApp();
+          initDashboard();
+          return;
+        }
         if (isTokenValid()) {
           showApp();
           initDashboard();
