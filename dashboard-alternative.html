@@ -459,6 +459,45 @@
 
       </section>
 
+      <!-- YouTrack Section -->
+      <section class="mt-12 gs-hidden" id="youtrack-section">
+        <div class="divider mb-8"></div>
+
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-1 h-4 rounded-full" style="background: #E20F86;"></div>
+          <h2 class="text-text-primary font-medium text-[15px] tracking-wide">YouTrack</h2>
+          <span class="text-muted text-[11px] tracking-wide">Unassigned</span>
+        </div>
+
+        <div id="youtrack-content">
+          <!-- Loading skeleton -->
+          <div id="youtrack-loading" class="hidden">
+            <div class="dash-card p-5" style="--card-color: #E20F86">
+              <div class="space-y-3">
+                <div class="skeleton-line w-3/4"></div>
+                <div class="skeleton-line w-1/2"></div>
+                <div class="skeleton-line w-2/3"></div>
+                <div class="skeleton-line w-3/5"></div>
+                <div class="skeleton-line w-1/2"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error state -->
+          <div id="youtrack-error" class="hidden dash-card p-5 text-center" style="--card-color: #F26F60">
+            <p class="text-muted-light text-[13px]" id="youtrack-error-msg"></p>
+          </div>
+
+          <!-- Data display -->
+          <div id="youtrack-data" class="hidden">
+            <div class="dash-card p-0 overflow-hidden" style="--card-color: #E20F86">
+              <div id="youtrack-issues-list"></div>
+              <div id="youtrack-issues-empty" class="hidden px-5 py-5 text-muted text-[12px]">No unassigned issues</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Linear Section -->
       <section class="mt-12 gs-hidden" id="linear-section">
         <div class="divider mb-8"></div>
@@ -510,45 +549,6 @@
               </div>
               <div id="projects-list"></div>
               <div id="projects-empty" class="hidden px-5 pb-5 text-muted text-[12px]">No project updates</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- YouTrack Section -->
-      <section class="mt-12 gs-hidden" id="youtrack-section">
-        <div class="divider mb-8"></div>
-
-        <div class="flex items-center gap-3 mb-5">
-          <div class="w-1 h-4 rounded-full" style="background: #E20F86;"></div>
-          <h2 class="text-text-primary font-medium text-[15px] tracking-wide">YouTrack</h2>
-          <span class="text-muted text-[11px] tracking-wide">Unassigned</span>
-        </div>
-
-        <div id="youtrack-content">
-          <!-- Loading skeleton -->
-          <div id="youtrack-loading" class="hidden">
-            <div class="dash-card p-5" style="--card-color: #E20F86">
-              <div class="space-y-3">
-                <div class="skeleton-line w-3/4"></div>
-                <div class="skeleton-line w-1/2"></div>
-                <div class="skeleton-line w-2/3"></div>
-                <div class="skeleton-line w-3/5"></div>
-                <div class="skeleton-line w-1/2"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Error state -->
-          <div id="youtrack-error" class="hidden dash-card p-5 text-center" style="--card-color: #F26F60">
-            <p class="text-muted-light text-[13px]" id="youtrack-error-msg"></p>
-          </div>
-
-          <!-- Data display -->
-          <div id="youtrack-data" class="hidden">
-            <div class="dash-card p-0 overflow-hidden" style="--card-color: #E20F86">
-              <div id="youtrack-issues-list"></div>
-              <div id="youtrack-issues-empty" class="hidden px-5 py-5 text-muted text-[12px]">No unassigned issues</div>
             </div>
           </div>
         </div>
@@ -1013,7 +1013,7 @@
       }
 
       async function fetchUnassignedIssues() {
-        const issues = await youtrackQuery('#Unresolved has: -Assignee');
+        const issues = await youtrackQuery('#Unresolved has: -Assignee project: IT, {Rail Network Support}');
         return issues;
       }
 
@@ -1111,13 +1111,13 @@
           '-=0.3'
         );
 
-        tl.fromTo('#linear-section',
+        tl.fromTo('#youtrack-section',
           { opacity: 0, y: 16 },
           { opacity: 1, y: 0, duration: 0.5 },
           '-=0.15'
         );
 
-        tl.fromTo('#youtrack-section',
+        tl.fromTo('#linear-section',
           { opacity: 0, y: 16 },
           { opacity: 1, y: 0, duration: 0.5 },
           '-=0.15'
