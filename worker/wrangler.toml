@@ -11,3 +11,9 @@ ALLOWED_ORIGIN = "https://tobiaswenck.github.io"
 # ── Secrets (set via CLI, never committed) ──
 # wrangler secret put LINEAR_API_KEY
 # → paste your lin_api_… key when prompted
+#
+# wrangler secret put DASHBOARD_PASSWORD
+# → the password users enter to access the dashboard
+#
+# wrangler secret put AUTH_SECRET
+# → random signing key, e.g.: openssl rand -hex 32

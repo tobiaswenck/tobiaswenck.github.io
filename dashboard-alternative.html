@@ -113,6 +113,44 @@
       /* Visibility helper for GSAP */
       .gs-hidden { opacity: 0; }
 
+      /* Login overlay */
+      #login-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: #0b0b0d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #login-overlay.hidden { display: none; }
+      #login-box {
+        width: 100%;
+        max-width: 340px;
+        padding: 0 24px;
+      }
+      #login-box input {
+        background: #0e0e10;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: border-color 0.3s ease;
+      }
+      #login-box input:focus {
+        border-color: rgba(255, 255, 255, 0.12);
+      }
+      #login-btn {
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: border-color 0.3s ease, background 0.3s ease;
+      }
+      #login-btn:hover {
+        background: #19191c;
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+      #login-error {
+        color: #F26F60;
+        min-height: 18px;
+      }
+
       /* Linear issue rows */
       .linear-issue-row {
         display: flex;
@@ -182,15 +220,50 @@
 
   <body class="font-geist bg-dash-bg text-text-primary min-h-screen overflow-x-hidden">
 
-    <!-- Main content -->
-    <main class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 lg:py-20 mx-auto" style="max-width: 1060px;">
+    <!-- Login overlay -->
+    <div id="login-overlay">
+      <div id="login-box">
+        <h1 class="text-2xl font-semibold tracking-tight text-text-primary mb-8 text-center">Dashboard</h1>
+        <form id="login-form" class="flex flex-col gap-3">
+          <input
+            id="login-password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Password"
+            class="h-10 rounded-lg px-4 text-[13px] text-text-primary placeholder-muted focus:outline-none w-full"
+          >
+          <button
+            type="submit"
+            id="login-btn"
+            class="h-10 rounded-lg text-[13px] text-muted-light cursor-pointer w-full"
+          >
+            Sign in
+          </button>
+          <p id="login-error" class="text-[11px] text-center">&nbsp;</p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main content (hidden until authenticated) -->
+    <main class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 lg:py-20 mx-auto" style="max-width: 1060px; display: none;">
 
       <!-- Header -->
       <header class="flex items-start justify-between mb-14 gs-hidden" id="header">
         <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">Hey!&nbsp;👋</h1>
-        <div class="text-right text-muted-light text-xs leading-relaxed tracking-wide">
-          <div id="date-display"></div>
-          <div><span id="time-display">00:00:00</span> Uhr</div>
+        <div class="flex items-center gap-4">
+          <div class="text-right text-muted-light text-xs leading-relaxed tracking-wide">
+            <div id="date-display"></div>
+            <div><span id="time-display">00:00:00</span> Uhr</div>
+          </div>
+          <button
+            id="logout-btn"
+            title="Logout"
+            class="search-btn h-8 w-8 rounded-lg flex items-center justify-center text-muted-light cursor-pointer"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 17L21 12M21 12L16 7M21 12H9M9 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V16.2C3 17.8802 3 18.7202 3.32698 19.362C3.6146 19.9265 4.07354 20.3854 4.63803 20.673C5.27976 21 6.11984 21 7.8 21H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -417,6 +490,89 @@
     </main>
 
     <script>
+      // ── Auth constants ──
+      const WORKER_URL = 'https://linear-proxy.tobiaswenck.workers.dev';
+      const TOKEN_KEY = 'dash_token';
+
+      // ── Token helpers ──
+      function getToken() { return localStorage.getItem(TOKEN_KEY); }
+      function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+      function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+      /** Decode JWT payload (no verification — worker does that) */
+      function decodePayload(token) {
+        try {
+          const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          return JSON.parse(atob(base64));
+        } catch { return null; }
+      }
+
+      function isTokenValid() {
+        const token = getToken();
+        if (!token) return false;
+        const payload = decodePayload(token);
+        if (!payload || !payload.exp) return false;
+        return payload.exp > Math.floor(Date.now() / 1000);
+      }
+
+      function showApp() {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.querySelector('main').style.display = '';
+      }
+
+      function showLogin(msg) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+        document.querySelector('main').style.display = 'none';
+        if (msg) document.getElementById('login-error').textContent = msg;
+      }
+
+      function logout() {
+        clearToken();
+        showLogin();
+        document.getElementById('login-password').value = '';
+        document.getElementById('login-error').innerHTML = '&nbsp;';
+      }
+
+      // ── Login flow ──
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('login-password').value;
+        const errEl = document.getElementById('login-error');
+        const btn = document.getElementById('login-btn');
+
+        if (!pw) { errEl.textContent = 'Enter a password'; return; }
+
+        btn.textContent = '...';
+        btn.disabled = true;
+        errEl.innerHTML = '&nbsp;';
+
+        try {
+          const res = await fetch(`${WORKER_URL}/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw }),
+          });
+          const json = await res.json().catch(() => null);
+
+          if (!res.ok) {
+            errEl.textContent = json?.error || 'Authentication failed';
+            return;
+          }
+
+          setToken(json.token);
+          showApp();
+          initDashboard();
+        } catch (err) {
+          errEl.textContent = 'Could not reach server';
+        } finally {
+          btn.textContent = 'Sign in';
+          btn.disabled = false;
+        }
+      });
+
+      // ── Logout ──
+      document.getElementById('logout-btn').addEventListener('click', logout);
+
       // ── Clock ──
       function updateClock() {
         const now = new Date();
@@ -436,11 +592,7 @@
         if (q) window.location.href = 'https://www.google.com/search?q=' + encodeURIComponent(q);
       });
 
-      // ── Linear Proxy ──
-      // Points to the Cloudflare Worker that holds the API key server-side.
-      // Deploy the worker from /worker and set your LINEAR_API_KEY secret.
-      const LINEAR_PROXY = 'https://linear-proxy.tobiaswenck.workers.dev';
-
+      // ── Linear Proxy (now with auth) ──
       function escapeHtml(str) {
         const div = document.createElement('div');
         div.textContent = str;
@@ -448,11 +600,23 @@
       }
 
       async function linearQuery(query) {
-        const res = await fetch(LINEAR_PROXY, {
+        const token = getToken();
+        const res = await fetch(WORKER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
           body: JSON.stringify({ query }),
         });
+
+        // Token rejected — force re-login
+        if (res.status === 401) {
+          clearToken();
+          showLogin('Session expired. Please sign in again.');
+          throw new Error('Unauthorized');
+        }
+
         const json = await res.json().catch(() => null);
         if (!res.ok) {
           const msg = json?.errors?.[0]?.message || json?.error || `HTTP ${res.status}`;
@@ -486,7 +650,6 @@
       }
 
       async function fetchProjectUpdates() {
-        // Use root projects query — the teamMemberships path misses cross-team projects
         const query = `{
           projects(
             first: 50
@@ -510,7 +673,6 @@
           }
         }`;
         const data = await linearQuery(query);
-        // Only show projects that have at least one update
         return data.projects.nodes.filter(p => p.projectUpdates.nodes.length > 0);
       }
 
@@ -618,14 +780,12 @@
 
         const errors = [];
 
-        // Fetch issues and projects independently so one failing doesn't kill the other
         const [issues, projects] = await Promise.all([
           fetchMyIssues().catch(err => { errors.push('Issues: ' + err.message); return []; }),
           fetchProjectUpdates().catch(err => { errors.push('Projects: ' + err.message); return []; }),
         ]);
 
         if (errors.length === 2) {
-          // Both failed
           console.error('Linear proxy errors:', errors);
           const msg = errors[0];
           document.getElementById('linear-error-msg').textContent =
@@ -645,24 +805,26 @@
         showLinearState('data');
       }
 
-      // ── GSAP entrance ──
-      document.addEventListener('DOMContentLoaded', () => {
+      // ── Dashboard init (called after successful auth) ──
+      let dashboardInitialized = false;
+
+      function initDashboard() {
+        if (dashboardInitialized) return;
+        dashboardInitialized = true;
+
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-        // Header
         tl.fromTo('#header',
           { opacity: 0, y: -8 },
           { opacity: 1, y: 0, duration: 0.6 }
         );
 
-        // Search form
         tl.fromTo('#search-form',
           { opacity: 0, y: 10 },
           { opacity: 1, y: 0, duration: 0.5 },
           '-=0.35'
         );
 
-        // Bookmark cards — staggered (scoped to card-grid only)
         const cards = document.querySelectorAll('#card-grid .dash-card');
         tl.fromTo(cards,
           { opacity: 0, y: 16 },
@@ -670,21 +832,19 @@
           '-=0.3'
         );
 
-        // Linear section
         tl.fromTo('#linear-section',
           { opacity: 0, y: 16 },
           { opacity: 1, y: 0, duration: 0.5 },
           '-=0.15'
         );
 
-        // Footer
         tl.fromTo('footer',
           { opacity: 0 },
           { opacity: 1, duration: 0.5 },
           '-=0.15'
         );
 
-        // ── Card hover effects (GSAP) — bookmark cards only ──
+        // ── Card hover effects ──
         function hexToRgba(hex, a) {
           const r = parseInt(hex.slice(1, 3), 16);
           const g = parseInt(hex.slice(3, 5), 16);
@@ -693,12 +853,10 @@
         }
 
         cards.forEach(card => {
-          // Inject glow overlay
           const glow = document.createElement('div');
           glow.classList.add('card-glow');
           card.insertBefore(glow, card.firstChild);
 
-          // Inject accent line
           const accent = document.createElement('div');
           accent.classList.add('card-accent');
           card.appendChild(accent);
@@ -707,7 +865,6 @@
           const raw = getComputedStyle(card).getPropertyValue('--card-color').trim();
           const c = raw.startsWith('#') ? raw : '#ffffff';
 
-          // Build hover timeline (paused)
           const ht = gsap.timeline({ paused: true, defaults: { ease: 'power3.out' } });
 
           ht.to(card, {
@@ -742,8 +899,18 @@
           card.addEventListener('mouseleave', () => ht.timeScale(1).reverse());
         });
 
-        // ── Init Linear data ──
         fetchLinearData();
+      }
+
+      // ── Boot: check existing token ──
+      document.addEventListener('DOMContentLoaded', () => {
+        if (isTokenValid()) {
+          showApp();
+          initDashboard();
+        } else {
+          clearToken();
+          showLogin();
+        }
       });
     </script>
   </body>
