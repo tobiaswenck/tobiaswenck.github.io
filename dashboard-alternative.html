@@ -515,6 +515,45 @@
         </div>
       </section>
 
+      <!-- YouTrack Section -->
+      <section class="mt-12 gs-hidden" id="youtrack-section">
+        <div class="divider mb-8"></div>
+
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-1 h-4 rounded-full" style="background: #E20F86;"></div>
+          <h2 class="text-text-primary font-medium text-[15px] tracking-wide">YouTrack</h2>
+          <span class="text-muted text-[11px] tracking-wide">Unassigned</span>
+        </div>
+
+        <div id="youtrack-content">
+          <!-- Loading skeleton -->
+          <div id="youtrack-loading" class="hidden">
+            <div class="dash-card p-5" style="--card-color: #E20F86">
+              <div class="space-y-3">
+                <div class="skeleton-line w-3/4"></div>
+                <div class="skeleton-line w-1/2"></div>
+                <div class="skeleton-line w-2/3"></div>
+                <div class="skeleton-line w-3/5"></div>
+                <div class="skeleton-line w-1/2"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error state -->
+          <div id="youtrack-error" class="hidden dash-card p-5 text-center" style="--card-color: #F26F60">
+            <p class="text-muted-light text-[13px]" id="youtrack-error-msg"></p>
+          </div>
+
+          <!-- Data display -->
+          <div id="youtrack-data" class="hidden">
+            <div class="dash-card p-0 overflow-hidden" style="--card-color: #E20F86">
+              <div id="youtrack-issues-list"></div>
+              <div id="youtrack-issues-empty" class="hidden px-5 py-5 text-muted text-[12px]">No unassigned issues</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Footer -->
       <div class="mt-14">
         
@@ -940,6 +979,105 @@
         showLinearState('data');
       }
 
+      // ── YouTrack Proxy ──
+      async function youtrackQuery(query) {
+        const token = getToken();
+        const res = await fetch(`${WORKER_URL}/youtrack`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ query }),
+        });
+
+        if (res.status === 401) {
+          clearToken();
+          showLogin('Session expired. Please sign in again.');
+          throw new Error('Unauthorized');
+        }
+
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = json?.error || `HTTP ${res.status}`;
+          console.error('YouTrack proxy response:', json);
+          throw new Error(msg);
+        }
+        return json;
+      }
+
+      function showYouTrackState(state) {
+        document.getElementById('youtrack-loading').classList.toggle('hidden', state !== 'loading');
+        document.getElementById('youtrack-error').classList.toggle('hidden', state !== 'error');
+        document.getElementById('youtrack-data').classList.toggle('hidden', state !== 'data');
+      }
+
+      async function fetchUnassignedIssues() {
+        const issues = await youtrackQuery('#Unresolved Assignee: Unassigned');
+        return issues;
+      }
+
+      function getYouTrackField(issue, fieldName) {
+        const field = issue.customFields?.find(f => f.name === fieldName);
+        return field?.value || null;
+      }
+
+      function renderYouTrackIssues(issues) {
+        const container = document.getElementById('youtrack-issues-list');
+        const empty = document.getElementById('youtrack-issues-empty');
+
+        if (!issues.length) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        empty.classList.add('hidden');
+        container.innerHTML = issues.map(issue => {
+          const state = getYouTrackField(issue, 'State');
+          const stateColor = state?.color?.background || '#505058';
+          const stateName = state?.name || '';
+          const id = escapeHtml(issue.idReadable || '');
+          const title = escapeHtml(issue.summary || '');
+          const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
+
+          return `
+            <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
+              <span class="status-dot" style="background: ${escapeHtml(stateColor)};" title="${escapeHtml(stateName)}"></span>
+              <span class="text-muted text-[11px] flex-shrink-0">${id}</span>
+              <span class="text-text-secondary text-[12px] truncate flex-1">${title}</span>
+            </a>
+          `;
+        }).join('');
+      }
+
+      async function fetchYouTrackData() {
+        showYouTrackState('loading');
+
+        try {
+          const issues = await fetchUnassignedIssues();
+          renderYouTrackIssues(issues);
+          showYouTrackState('data');
+        } catch (err) {
+          console.error('YouTrack fetch error:', err);
+
+          if (IS_LOCAL) {
+            document.getElementById('youtrack-error-msg').textContent =
+              'Dev mode — YouTrack API unavailable (CORS). Push to live domain to test.';
+            showYouTrackState('error');
+            return;
+          }
+
+          document.getElementById('youtrack-error-msg').textContent =
+            err.message.includes('401') || err.message.includes('Unauthorized')
+              ? 'YouTrack token is invalid. Check the worker secret.'
+              : err.message.includes('Failed to fetch') || err.message.includes('NetworkError')
+              ? 'Could not reach the YouTrack proxy. Is the worker route deployed?'
+              : `Failed to load YouTrack data: ${err.message}`;
+          showYouTrackState('error');
+        }
+      }
+
       // ── Dashboard init (called after successful auth) ──
       let dashboardInitialized = false;
 
@@ -974,6 +1112,12 @@
         );
 
         tl.fromTo('#linear-section',
+          { opacity: 0, y: 16 },
+          { opacity: 1, y: 0, duration: 0.5 },
+          '-=0.15'
+        );
+
+        tl.fromTo('#youtrack-section',
           { opacity: 0, y: 16 },
           { opacity: 1, y: 0, duration: 0.5 },
           '-=0.15'
@@ -1041,6 +1185,7 @@
         });
 
         fetchLinearData();
+        fetchYouTrackData();
       }
 
       // ── Boot: check existing token ──
