@@ -650,31 +650,31 @@
       }
 
       async function fetchProjectUpdates() {
-        const query = `{
-          projects(
-            first: 50
-            filter: {
-              members: { some: { isMe: { eq: true } } }
-              state: { nin: ["completed", "canceled"] }
-            }
-          ) {
-            nodes {
-              name
-              url
-              projectUpdates(last: 1) {
-                nodes {
-                  body
-                  createdAt
-                  health
-                  user { name }
-                }
-              }
-            }
-          }
-        }`;
-        const data = await linearQuery(query);
-        return data.projects.nodes.filter(p => p.projectUpdates.nodes.length > 0);
+  const query = `{
+    projects(
+      first: 50
+      filter: {
+        members: { some: { isMe: { eq: true } } }
+        state: { nin: ["completed", "canceled"] }
       }
+    ) {
+      nodes {
+        name
+        url
+        projectUpdates(first: 1, orderBy: createdAt) {
+          nodes {
+            body
+            createdAt
+            health
+            user { name }
+          }
+        }
+      }
+    }
+  }`;
+  const data = await linearQuery(query);
+  return data.projects.nodes.filter(p => p.projectUpdates.nodes.length > 0);
+}
 
       // ── Rendering helpers ──
       function showLinearState(state) {
