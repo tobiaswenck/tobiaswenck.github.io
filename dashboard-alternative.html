@@ -1013,7 +1013,7 @@
       }
 
       async function fetchUnassignedIssues() {
-        const issues = await youtrackQuery('#Unresolved Assignee: Unassigned');
+        const issues = await youtrackQuery('#Unresolved has: -Assignee');
         return issues;
       }
 

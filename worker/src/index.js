@@ -5,14 +5,15 @@
  * injected server-side. All requests require a valid JWT.
  *
  * Routes:
- *   POST /auth   — exchange password for a JWT
- *   POST /        — proxy GraphQL to Linear (requires JWT)
+ *   POST /auth      — exchange password for a JWT
+ *   POST /          — proxy GraphQL to Linear (requires JWT)
+ *   POST /youtrack  — proxy issue queries to YouTrack REST API (requires JWT)
  *
  * Secrets (set via `wrangler secret put`):
  *   LINEAR_API_KEY      – your Linear personal API key (lin_api_…)
+ *   YOUTRACK_TOKEN      – YouTrack permanent token for REST API
  *   DASHBOARD_PASSWORD  – the password users enter to log in
  *   AUTH_SECRET          – random string used to sign JWTs (e.g. openssl rand -hex 32)
- *
  * Environment vars (wrangler.toml [vars]):
  *   ALLOWED_ORIGIN  – the origin allowed to call this worker
  */
@@ -139,18 +140,27 @@ function isQueryAllowed(query) {
   // Extract all top-level field names from the selection set.
   // We walk character-by-character and track brace depth to only
   // capture identifiers at depth === 1 (the root fields).
+  // Parentheses are also tracked so that GraphQL arguments like
+  // `projects(first: 50, ...)` don't get misread as root fields.
   const rootFields = [];
   let depth = 0;
+  let parenDepth = 0;
   let i = 0;
   while (i < body.length) {
     const ch = body[i];
-    if (ch === "{") {
+    if (ch === "(") {
+      parenDepth++;
+      i++;
+    } else if (ch === ")") {
+      parenDepth--;
+      i++;
+    } else if (ch === "{") {
       depth++;
       i++;
     } else if (ch === "}") {
       depth--;
       i++;
-    } else if (depth === 1) {
+    } else if (depth === 1 && parenDepth === 0) {
       // Try to match a field name (optionally preceded by alias: )
       const slice = body.slice(i);
       const fieldMatch = slice.match(/^(\w+)\s*:/);
@@ -262,6 +272,60 @@ async function handleProxy(request, env) {
   });
 }
 
+// ── YouTrack proxy ──
+
+async function handleYouTrack(request, env) {
+  // ── Auth check ──
+  const claims = await authenticate(request, env);
+  if (!claims) {
+    return jsonError("Unauthorized", 401, env);
+  }
+
+  // ── Ensure YouTrack token is configured ──
+  if (!env.YOUTRACK_TOKEN) {
+    return jsonError("Worker misconfigured: YOUTRACK_TOKEN secret not set", 500, env);
+  }
+
+  // ── Parse body ──
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body", 400, env);
+  }
+
+  if (!body.query || typeof body.query !== "string") {
+    return jsonError("Missing or invalid 'query' field", 400, env);
+  }
+
+  // ── Build YouTrack REST API URL ──
+  const ytUrl = new URL("https://edith.youtrack.cloud/api/issues");
+  ytUrl.searchParams.set("query", body.query);
+  ytUrl.searchParams.set("$top", body.top || "20");
+  ytUrl.searchParams.set(
+    "fields",
+    "idReadable,summary,project(shortName),created,customFields(name,$type,value(name,color(background)))",
+  );
+
+  const ytRes = await fetch(ytUrl.toString(), {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${env.YOUTRACK_TOKEN}`,
+      "Cache-Control": "no-cache",
+    },
+  });
+
+  const data = await ytRes.text();
+
+  return new Response(data, {
+    status: ytRes.status,
+    headers: {
+      "Content-Type": "application/json",
+      ...corsHeaders(env),
+    },
+  });
+}
+
 // ── Main router ──
 
 export default {
@@ -287,6 +351,10 @@ export default {
 
     if (url.pathname === "/auth") {
       return handleAuth(request, env);
+    }
+
+    if (url.pathname === "/youtrack") {
+      return handleYouTrack(request, env);
     }
 
     // Default: Linear proxy (everything else goes here)
