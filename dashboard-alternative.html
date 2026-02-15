@@ -254,12 +254,10 @@
         overflow: hidden;
       }
 
-      /* GitLab MR rows */
+      /* GitLab MR rows — two-line layout */
       .gitlab-mr-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 20px;
+        display: block;
+        padding: 12px 20px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         transition: background 0.2s ease;
         text-decoration: none;
@@ -1387,16 +1385,28 @@
           const title = escapeHtml(mr.title || '');
           const url = escapeHtml(mr.web_url || '');
           const author = escapeHtml(mr.author?.name || mr.author?.username || '');
+          const assignee = mr.assignees?.length
+            ? escapeHtml(mr.assignees.map(a => a.name || a.username).join(', '))
+            : '<span class="text-muted">Unassigned</span>';
           const age = mr.updated_at ? relativeTime(mr.updated_at) : '';
-          const branch = escapeHtml(mr.target_branch || '');
+          const sourceBranch = escapeHtml(mr.source_branch || '');
+          const targetBranch = escapeHtml(mr.target_branch || '');
 
           return `
             <a href="${url}" target="_blank" rel="noopener" class="gitlab-mr-row">
-              <span class="status-dot" style="background: #E24329;"></span>
-              <span class="text-muted text-[11px] flex-shrink-0">${ref}</span>
-              <span class="text-text-secondary text-[12px] truncate flex-1">${title}</span>
-              ${mrStatusBadge(mr)}
-              <span class="text-muted text-[10px] flex-shrink-0 tracking-wide" title="${escapeHtml(author)} · ${escapeHtml(branch)}">${age}</span>
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="status-dot" style="background: #E24329;"></span>
+                <span class="text-muted text-[11px] flex-shrink-0">${ref}</span>
+                <span class="text-text-primary text-[12px] font-medium truncate flex-1">${title}</span>
+                ${mrStatusBadge(mr)}
+              </div>
+              <div class="flex items-center gap-2 text-muted text-[10px] tracking-wide pl-[18px]">
+                <span>${assignee}</span>
+                <span>&middot;</span>
+                <span class="truncate">${sourceBranch} → ${targetBranch}</span>
+                <span>&middot;</span>
+                <span class="flex-shrink-0">${age}</span>
+              </div>
             </a>
           `;
         }).join('');
