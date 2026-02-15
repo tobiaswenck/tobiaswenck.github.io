@@ -12,6 +12,12 @@ ALLOWED_ORIGIN = "https://tobiaswenck.github.io"
 # wrangler secret put LINEAR_API_KEY
 # → paste your lin_api_… key when prompted
 #
+# wrangler secret put YOUTRACK_TOKEN
+# → YouTrack permanent token for REST API
+#
+# wrangler secret put GITLAB_TOKEN
+# → GitLab personal access token with read_api scope
+#
 # wrangler secret put DASHBOARD_PASSWORD
 # → the password users enter to access the dashboard
 #

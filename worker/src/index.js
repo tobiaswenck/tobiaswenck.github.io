@@ -8,10 +8,12 @@
  *   POST /auth      — exchange password for a JWT
  *   POST /          — proxy GraphQL to Linear (requires JWT)
  *   POST /youtrack  — proxy issue queries to YouTrack REST API (requires JWT)
+ *   POST /gitlab    — proxy merge request queries to GitLab REST API (requires JWT)
  *
  * Secrets (set via `wrangler secret put`):
  *   LINEAR_API_KEY      – your Linear personal API key (lin_api_…)
  *   YOUTRACK_TOKEN      – YouTrack permanent token for REST API
+ *   GITLAB_TOKEN        – GitLab personal access token with read_api scope
  *   DASHBOARD_PASSWORD  – the password users enter to log in
  *   AUTH_SECRET          – random string used to sign JWTs (e.g. openssl rand -hex 32)
  * Environment vars (wrangler.toml [vars]):
@@ -326,6 +328,53 @@ async function handleYouTrack(request, env) {
   });
 }
 
+// ── GitLab proxy ──
+
+const GITLAB_BASE = "https://gitlab.dev.edith-bahn.de";
+
+async function handleGitLab(request, env) {
+  // ── Auth check ──
+  const claims = await authenticate(request, env);
+  if (!claims) {
+    return jsonError("Unauthorized", 401, env);
+  }
+
+  // ── Ensure GitLab token is configured ──
+  if (!env.GITLAB_TOKEN) {
+    return jsonError(
+      "Worker misconfigured: GITLAB_TOKEN secret not set",
+      500,
+      env,
+    );
+  }
+
+  // ── Build GitLab REST API URL ──
+  // Fetch open, non-draft MRs where the token owner is a reviewer
+  const glUrl = new URL(`${GITLAB_BASE}/api/v4/merge_requests`);
+  glUrl.searchParams.set("scope", "reviews_for_me");
+  glUrl.searchParams.set("state", "opened");
+  glUrl.searchParams.set("wip", "no");
+  glUrl.searchParams.set("per_page", "25");
+  glUrl.searchParams.set("order_by", "updated_at");
+
+  const glRes = await fetch(glUrl.toString(), {
+    headers: {
+      Accept: "application/json",
+      "PRIVATE-TOKEN": env.GITLAB_TOKEN,
+    },
+  });
+
+  const data = await glRes.text();
+
+  return new Response(data, {
+    status: glRes.status,
+    headers: {
+      "Content-Type": "application/json",
+      ...corsHeaders(env),
+    },
+  });
+}
+
 // ── Main router ──
 
 export default {
@@ -355,6 +404,10 @@ export default {
 
     if (url.pathname === "/youtrack") {
       return handleYouTrack(request, env);
+    }
+
+    if (url.pathname === "/gitlab") {
+      return handleGitLab(request, env);
     }
 
     // Default: Linear proxy (everything else goes here)

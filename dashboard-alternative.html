@@ -254,6 +254,29 @@
         overflow: hidden;
       }
 
+      /* GitLab MR rows */
+      .gitlab-mr-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        transition: background 0.2s ease;
+        text-decoration: none;
+      }
+      .gitlab-mr-row:hover { background: #19191c; }
+      .gitlab-mr-row:last-child { border-bottom: none; }
+
+      .mr-status-badge {
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+
       /* F1 section */
       .f1-digit-block {
         display: flex;
@@ -593,6 +616,45 @@
               </div>
               <div id="projects-list"></div>
               <div id="projects-empty" class="hidden px-5 pb-5 text-muted text-[12px]">No project updates</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- GitLab Section -->
+      <section class="mt-12 gs-hidden" id="gitlab-section">
+        <div class="divider mb-8"></div>
+
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-1 h-4 rounded-full" style="background: #E24329;"></div>
+          <h2 class="text-text-primary font-medium text-[15px] tracking-wide">GitLab</h2>
+          <span class="text-muted text-[11px] tracking-wide">Reviews</span>
+        </div>
+
+        <div id="gitlab-content">
+          <!-- Loading skeleton -->
+          <div id="gitlab-loading" class="hidden">
+            <div class="dash-card p-5" style="--card-color: #E24329">
+              <div class="space-y-3">
+                <div class="skeleton-line w-3/4"></div>
+                <div class="skeleton-line w-1/2"></div>
+                <div class="skeleton-line w-2/3"></div>
+                <div class="skeleton-line w-3/5"></div>
+                <div class="skeleton-line w-1/2"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error state -->
+          <div id="gitlab-error" class="hidden dash-card p-5 text-center" style="--card-color: #F26F60">
+            <p class="text-muted-light text-[13px]" id="gitlab-error-msg"></p>
+          </div>
+
+          <!-- Data display -->
+          <div id="gitlab-data" class="hidden">
+            <div class="dash-card p-0 overflow-hidden" style="--card-color: #E24329">
+              <div id="gitlab-mr-list"></div>
+              <div id="gitlab-mr-empty" class="hidden px-5 py-5 text-muted text-[12px]">No merge requests to review</div>
             </div>
           </div>
         </div>
@@ -1263,6 +1325,107 @@
         }
       }
 
+      // ── GitLab Proxy ──
+      async function gitlabQuery() {
+        const token = getToken();
+        const res = await fetch(`${WORKER_URL}/gitlab`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({}),
+        });
+
+        if (res.status === 401) {
+          clearToken();
+          showLogin('Session expired. Please sign in again.');
+          throw new Error('Unauthorized');
+        }
+
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = json?.error || `HTTP ${res.status}`;
+          console.error('GitLab proxy response:', json);
+          throw new Error(msg);
+        }
+        return json;
+      }
+
+      function showGitLabState(state) {
+        document.getElementById('gitlab-loading').classList.toggle('hidden', state !== 'loading');
+        document.getElementById('gitlab-error').classList.toggle('hidden', state !== 'error');
+        document.getElementById('gitlab-data').classList.toggle('hidden', state !== 'data');
+      }
+
+      function mrStatusBadge(mr) {
+        if (mr.has_conflicts) {
+          return '<span class="mr-status-badge" style="background: rgba(242,111,96,0.15); color: #F26F60;">CONFLICTS</span>';
+        }
+        if (mr.detailed_merge_status === 'mergeable' || mr.detailed_merge_status === 'ci_must_pass' || mr.merge_status === 'can_be_merged') {
+          return '<span class="mr-status-badge" style="background: rgba(76,175,80,0.15); color: #4CAF50;">READY</span>';
+        }
+        return '';
+      }
+
+      function renderGitLabMRs(mrs) {
+        const container = document.getElementById('gitlab-mr-list');
+        const empty = document.getElementById('gitlab-mr-empty');
+
+        if (!mrs.length) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        empty.classList.add('hidden');
+        container.innerHTML = mrs.map(mr => {
+          const ref = escapeHtml(mr.references?.short || `!${mr.iid}`);
+          const title = escapeHtml(mr.title || '');
+          const url = escapeHtml(mr.web_url || '');
+          const author = escapeHtml(mr.author?.name || mr.author?.username || '');
+          const age = mr.updated_at ? relativeTime(mr.updated_at) : '';
+          const branch = escapeHtml(mr.target_branch || '');
+
+          return `
+            <a href="${url}" target="_blank" rel="noopener" class="gitlab-mr-row">
+              <span class="status-dot" style="background: #E24329;"></span>
+              <span class="text-muted text-[11px] flex-shrink-0">${ref}</span>
+              <span class="text-text-secondary text-[12px] truncate flex-1">${title}</span>
+              ${mrStatusBadge(mr)}
+              <span class="text-muted text-[10px] flex-shrink-0 tracking-wide" title="${escapeHtml(author)} · ${escapeHtml(branch)}">${age}</span>
+            </a>
+          `;
+        }).join('');
+      }
+
+      async function fetchGitLabMRs() {
+        showGitLabState('loading');
+
+        try {
+          const mrs = await gitlabQuery();
+          renderGitLabMRs(mrs);
+          showGitLabState('data');
+        } catch (err) {
+          console.error('GitLab fetch error:', err);
+
+          if (IS_LOCAL) {
+            document.getElementById('gitlab-error-msg').textContent =
+              'Dev mode — GitLab API unavailable (CORS). Push to live domain to test.';
+            showGitLabState('error');
+            return;
+          }
+
+          document.getElementById('gitlab-error-msg').textContent =
+            err.message.includes('401') || err.message.includes('Unauthorized')
+              ? 'GitLab token is invalid. Check the worker secret.'
+              : err.message.includes('Failed to fetch') || err.message.includes('NetworkError')
+              ? 'Could not reach the GitLab proxy. Is the worker route deployed?'
+              : `Failed to load GitLab data: ${err.message}`;
+          showGitLabState('error');
+        }
+      }
+
       // ── F1 Next Race Countdown ──
       let f1RaceTime = null;
       let f1CountdownInterval = null;
@@ -1422,6 +1585,12 @@
           '-=0.15'
         );
 
+        tl.fromTo('#gitlab-section',
+          { opacity: 0, y: 16 },
+          { opacity: 1, y: 0, duration: 0.5 },
+          '-=0.15'
+        );
+
         tl.fromTo('#f1-section',
           { opacity: 0, y: 16 },
           { opacity: 1, y: 0, duration: 0.5 },
@@ -1492,6 +1661,7 @@
         initLastAccessTracking();
         fetchLinearData();
         fetchYouTrackData();
+        fetchGitLabMRs();
         fetchNextRace();
       }
 
