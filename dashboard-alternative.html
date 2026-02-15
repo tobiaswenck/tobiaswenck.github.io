@@ -1359,13 +1359,16 @@
       }
 
       function mrStatusBadge(mr) {
+        if (mr.draft) {
+          return '<span class="mr-status-badge" style="background: rgba(160,160,168,0.12); color: #7e7e86;">DRAFT</span>';
+        }
         if (mr.has_conflicts) {
           return '<span class="mr-status-badge" style="background: rgba(242,111,96,0.15); color: #F26F60;">CONFLICTS</span>';
         }
-        if (mr.detailed_merge_status === 'mergeable' || mr.detailed_merge_status === 'ci_must_pass' || mr.merge_status === 'can_be_merged') {
+        if (mr.detailed_merge_status === 'mergeable' || mr.merge_status === 'can_be_merged') {
           return '<span class="mr-status-badge" style="background: rgba(76,175,80,0.15); color: #4CAF50;">READY</span>';
         }
-        return '';
+        return '<span class="mr-status-badge" style="background: rgba(226,67,41,0.15); color: #E24329;">REVIEW</span>';
       }
 
       function renderGitLabMRs(mrs) {

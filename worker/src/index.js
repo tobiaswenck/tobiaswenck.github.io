@@ -353,7 +353,6 @@ async function handleGitLab(request, env) {
   const glUrl = new URL(`${GITLAB_BASE}/api/v4/merge_requests`);
   glUrl.searchParams.set("scope", "reviews_for_me");
   glUrl.searchParams.set("state", "opened");
-  glUrl.searchParams.set("wip", "no");
   glUrl.searchParams.set("per_page", "25");
   glUrl.searchParams.set("order_by", "updated_at");
 
