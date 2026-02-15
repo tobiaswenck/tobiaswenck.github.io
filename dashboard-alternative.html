@@ -1180,7 +1180,7 @@
         empty.classList.add('hidden');
         container.innerHTML = issues.map(issue => {
           const state = getYouTrackField(issue, 'State');
-          const stateColor = state?.color?.foreground || '#505058';
+          const stateColor = state?.color?.background || '#505058';
           const stateName = state?.name || '';
           const id = escapeHtml(issue.idReadable || '');
           const title = escapeHtml(issue.summary || '');
