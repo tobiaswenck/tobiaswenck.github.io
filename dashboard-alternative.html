@@ -253,6 +253,50 @@
         -webkit-box-orient: vertical;
         overflow: hidden;
       }
+
+      /* F1 section */
+      .f1-digit-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        padding: 10px 0;
+        min-width: 60px;
+        transition: border-color 0.3s ease;
+      }
+      .f1-digit {
+        font-size: 22px;
+        font-weight: 600;
+        color: #ededef;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        font-variant-numeric: tabular-nums;
+      }
+      .f1-unit {
+        font-size: 9px;
+        color: #505058;
+        letter-spacing: 0.12em;
+        margin-top: 6px;
+        text-transform: uppercase;
+      }
+
+      /* Live pulse for race-in-progress */
+      @keyframes f1-live-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+      .f1-live-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #E10600;
+        display: inline-block;
+        animation: f1-live-pulse 1.5s ease-in-out infinite;
+      }
+
+
     </style>
   </head>
 
@@ -549,6 +593,86 @@
               </div>
               <div id="projects-list"></div>
               <div id="projects-empty" class="hidden px-5 pb-5 text-muted text-[12px]">No project updates</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- F1 Section -->
+      <section class="mt-12 gs-hidden" id="f1-section">
+        <div class="divider mb-8"></div>
+
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-1 h-4 rounded-full" style="background: #E10600;"></div>
+          <h2 class="text-text-primary font-medium text-[15px] tracking-wide">Formula 1</h2>
+          <span class="text-muted text-[11px] tracking-wide" id="f1-season-label"></span>
+        </div>
+
+        <div id="f1-content">
+          <!-- Loading skeleton -->
+          <div id="f1-loading" class="hidden">
+            <div class="dash-card p-6" style="--card-color: #E10600">
+              <div class="space-y-4">
+                <div class="skeleton-line w-1/4"></div>
+                <div class="skeleton-line w-2/3"></div>
+                <div class="skeleton-line w-1/3"></div>
+                <div class="flex gap-2 mt-4">
+                  <div class="skeleton-line" style="width:60px;height:48px;border-radius:10px"></div>
+                  <div class="skeleton-line" style="width:60px;height:48px;border-radius:10px"></div>
+                  <div class="skeleton-line" style="width:60px;height:48px;border-radius:10px"></div>
+                  <div class="skeleton-line" style="width:60px;height:48px;border-radius:10px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data display -->
+          <div id="f1-data" class="hidden">
+            <div class="dash-card p-0 overflow-hidden relative" style="--card-color: #E10600">
+
+              <div class="p-6">
+                <!-- Top row: Logo + Round -->
+                <div class="flex items-center gap-3 mb-5">
+                  <svg width="36" height="15" viewBox="0 0 309 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M111.237 24.7655C127.287 24.5818 143.626 24.7378 159.693 24.7378L248.62 24.746C239.38 34.0162 229.614 43.3471 220.23 52.5069C213.907 52.2763 206.603 52.445 200.189 52.4444L163.117 52.4443L131.27 52.4461C120.707 52.4421 105.983 51.944 95.9856 54.6868C87.0744 57.2004 78.2626 66.7303 71.7016 73.0807L54.1702 89.8267C52.0128 91.9205 49.7985 93.9843 47.7269 96.1614C46.7117 97.2283 45.7691 98.2396 44.6792 99.2328L2.47937 99.2475C3.99276 97.8412 5.39962 96.1721 6.8623 94.6966L17.3755 84.2664C18.6844 82.9869 20.1209 81.7895 21.4096 80.5156C25.5447 76.4224 29.6928 72.3395 33.8146 68.2327C37.58 64.4806 41.4105 60.7992 45.0443 56.9196C49.9942 51.7297 55.1553 46.7445 60.5145 41.9767C78.1585 26.2455 88.0276 25.5234 111.237 24.7655Z" fill="#E10600"/>
+                    <path d="M215.571 56.8553L215.724 57.0678C215.63 57.3463 215.393 57.7634 215.185 57.9608C210.882 62.0226 206.639 66.2466 202.46 70.4235L194.578 78.3116C193.069 79.8226 191.307 81.6791 189.715 83.0636C187.757 83.1938 184.505 83.095 182.441 83.0946L168.428 83.0917C151.974 83.0884 135.501 83.0532 119.047 83.1056C109.108 83.1372 106.59 84.1344 99.6908 90.9679L91.4449 99.2399L52.6947 99.2226C52.5701 99.1166 52.6261 99.1771 52.6019 98.9369C54.6777 96.7448 56.2962 95.0112 58.5301 92.9465C61.744 89.9763 64.874 86.6723 67.9858 83.564L78.2112 73.3506C82.1857 69.3817 87.7386 63.4252 92.7594 61.005C101.953 56.5731 114.591 56.8602 124.549 56.8591L145.836 56.8611L215.571 56.8553Z" fill="#E10600"/>
+                    <path d="M254.631 24.7458C259.569 24.6032 265.221 24.7384 270.205 24.7385L301.028 24.7366C297.944 27.642 294.786 30.9649 291.736 33.9606L264.539 61.0378C251.751 73.8293 238.838 86.249 226.222 99.2398L179.938 99.2248C181.528 97.7446 182.995 95.977 184.533 94.4261L196.764 82.2039L210.174 68.8232C213.141 65.9163 216.238 63.208 219.108 60.1659C220.602 58.5817 222.122 56.9198 223.64 55.379C233.808 45.0046 244.139 34.7923 254.631 24.7458Z" fill="#E10600"/>
+                  </svg>
+                  <div class="h-3 w-px bg-border"></div>
+                  <span class="text-muted text-[11px] tracking-widest uppercase" id="f1-round">Round 1</span>
+                </div>
+
+                <!-- Race name + circuit -->
+                <h3 class="text-text-primary text-[20px] sm:text-[22px] font-semibold tracking-tight leading-tight mb-1.5" id="f1-race-name"></h3>
+                <p class="text-text-secondary text-[12px] tracking-wide mb-6" id="f1-circuit"></p>
+
+                <!-- Countdown blocks -->
+                <div class="flex gap-2 sm:gap-3" id="f1-countdown-blocks">
+                  <div class="f1-digit-block flex-1">
+                    <span class="f1-digit" id="f1-days">--</span>
+                    <span class="f1-unit">Days</span>
+                  </div>
+                  <div class="f1-digit-block flex-1">
+                    <span class="f1-digit" id="f1-hours">--</span>
+                    <span class="f1-unit">Hrs</span>
+                  </div>
+                  <div class="f1-digit-block flex-1">
+                    <span class="f1-digit" id="f1-mins">--</span>
+                    <span class="f1-unit">Min</span>
+                  </div>
+                  <div class="f1-digit-block flex-1">
+                    <span class="f1-digit" id="f1-secs">--</span>
+                    <span class="f1-unit">Sec</span>
+                  </div>
+                </div>
+
+                <!-- Race date/time -->
+                <div class="flex items-center justify-between mt-5">
+                  <span class="text-muted text-[11px] tracking-wide" id="f1-race-datetime"></span>
+                  <span class="text-muted text-[11px] tracking-wide" id="f1-live-label"></span>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -1088,6 +1212,120 @@
         }
       }
 
+      // ── F1 Next Race Countdown ──
+      let f1RaceTime = null;
+      let f1CountdownInterval = null;
+
+      function showF1State(state) {
+        document.getElementById('f1-loading').classList.toggle('hidden', state !== 'loading');
+        document.getElementById('f1-data').classList.toggle('hidden', state !== 'data');
+      }
+
+      async function fetchNextRace() {
+        showF1State('loading');
+        try {
+          const res = await fetch('https://f1api.dev/api/current/next');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const race = data.race?.[0];
+          if (!race) throw new Error('No race data');
+
+          const schedule = race.schedule?.race;
+          if (!schedule?.date || !schedule?.time) throw new Error('No schedule');
+
+          f1RaceTime = new Date(`${schedule.date}T${schedule.time}`);
+
+          // Race name — strip "Formula 1" prefix
+          const raceName = race.raceName
+            ? race.raceName.replace(/^Formula 1\s*/i, '').trim()
+            : `${race.circuit?.city || ''} Grand Prix`;
+
+          // Season + round
+          document.getElementById('f1-season-label').textContent = `${data.season} Season`;
+          document.getElementById('f1-round').textContent = `Round ${race.round}`;
+
+          // Race name + circuit
+          document.getElementById('f1-race-name').textContent = raceName;
+          const circuit = race.circuit;
+          document.getElementById('f1-circuit').textContent = circuit
+            ? `${circuit.circuitName} · ${circuit.city}, ${circuit.country}`
+            : '';
+
+          // Race date/time in Berlin timezone
+          const berlinDate = f1RaceTime.toLocaleDateString('de-DE', {
+            timeZone: 'Europe/Berlin',
+            weekday: 'long',
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+          });
+          const berlinTime = f1RaceTime.toLocaleTimeString('de-DE', {
+            timeZone: 'Europe/Berlin',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          document.getElementById('f1-race-datetime').textContent = `${berlinDate} · ${berlinTime} Uhr (Berlin)`;
+
+          // Start countdown
+          updateF1Countdown();
+          f1CountdownInterval = setInterval(updateF1Countdown, 1000);
+
+          showF1State('data');
+        } catch (e) {
+          console.warn('F1 API unavailable:', e.message);
+          // Hide the section entirely on failure
+          document.getElementById('f1-section').style.display = 'none';
+        }
+      }
+
+      function updateF1Countdown() {
+        if (!f1RaceTime) return;
+        const now = Date.now();
+        const diff = f1RaceTime.getTime() - now;
+
+        const daysEl = document.getElementById('f1-days');
+        const hoursEl = document.getElementById('f1-hours');
+        const minsEl = document.getElementById('f1-mins');
+        const secsEl = document.getElementById('f1-secs');
+        const liveLabel = document.getElementById('f1-live-label');
+
+        if (diff <= 0 && diff > -10800000) {
+          // Race is live (within 3 hours of start)
+          daysEl.textContent = '00';
+          hoursEl.textContent = '00';
+          minsEl.textContent = '00';
+          secsEl.textContent = '00';
+          liveLabel.innerHTML = '<span class="f1-live-dot"></span> <span class="text-[#E10600] font-medium">LIVE</span>';
+          return;
+        }
+
+        if (diff <= 0) {
+          // Race is over, stop updating
+          clearInterval(f1CountdownInterval);
+          liveLabel.textContent = 'Race completed';
+          return;
+        }
+
+        const days = Math.floor(diff / 86400000);
+        const hours = Math.floor((diff % 86400000) / 3600000);
+        const mins = Math.floor((diff % 3600000) / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+
+        daysEl.textContent = String(days).padStart(2, '0');
+        hoursEl.textContent = String(hours).padStart(2, '0');
+        minsEl.textContent = String(mins).padStart(2, '0');
+        secsEl.textContent = String(secs).padStart(2, '0');
+
+        // Contextual label
+        if (days === 0 && hours < 1) {
+          liveLabel.textContent = 'Starting soon';
+        } else if (days <= 1) {
+          liveLabel.textContent = 'Race day approaching';
+        } else {
+          liveLabel.textContent = '';
+        }
+      }
+
       // ── Dashboard init (called after successful auth) ──
       let dashboardInitialized = false;
 
@@ -1128,6 +1366,12 @@
         );
 
         tl.fromTo('#linear-section',
+          { opacity: 0, y: 16 },
+          { opacity: 1, y: 0, duration: 0.5 },
+          '-=0.15'
+        );
+
+        tl.fromTo('#f1-section',
           { opacity: 0, y: 16 },
           { opacity: 1, y: 0, duration: 0.5 },
           '-=0.15'
@@ -1196,6 +1440,7 @@
 
         fetchLinearData();
         fetchYouTrackData();
+        fetchNextRace();
       }
 
       // ── Boot: check existing token ──
