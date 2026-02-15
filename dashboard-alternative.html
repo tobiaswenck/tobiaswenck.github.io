@@ -693,16 +693,16 @@
     </main>
 
     <script>
-      // ── Dev mode: bypass auth & gracefully handle API when running locally ──
+      // ─ Dev mode: bypass auth & gracefully handle API when running locally ─
       const IS_LOCAL = location.protocol === 'file:'
         || location.hostname === 'localhost'
         || location.hostname === '127.0.0.1';
 
-      // ── Auth constants ──
+      // ─ Auth constants ─
       const WORKER_URL = 'https://linear-proxy.tobiaswenck.workers.dev';
       const TOKEN_KEY = 'dash_token';
 
-      // ── Token helpers ──
+      // ─ Token helpers ─
       function getToken() { return localStorage.getItem(TOKEN_KEY); }
       function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
       function clearToken() { localStorage.removeItem(TOKEN_KEY); }
@@ -745,7 +745,7 @@
         document.getElementById('login-error').innerHTML = '&nbsp;';
       }
 
-      // ── Login flow ──
+      // ─ Login flow ─
       document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const pw = document.getElementById('login-password').value;
@@ -782,7 +782,7 @@
         }
       });
 
-      // ── Logout ──
+      // ─ Logout ─
       document.getElementById('logout-btn').addEventListener('click', () => {
         if (IS_LOCAL) return; // no-op in dev mode
         logout();
@@ -800,8 +800,8 @@
       updateClock();
       setInterval(updateClock, 1000);
 
-      // ── Smart search with prefixes ──
-      // Prefix filter icons (14×14, currentColor fills)
+      // ─ Smart search with prefixes ─
+      // Prefix filter icons
       const PREFIX_ICONS = {
         'gl':  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path opacity="0.4" fill-rule="evenodd" clip-rule="evenodd" d="M5.17969 1.25182C5.49792 1.2297 5.79535 1.41112 5.9212 1.70411L8.77957 8.35852C8.91393 8.67133 8.99219 8.85096 9.0635 8.97743C9.12411 9.08492 9.15475 9.1034 9.27513 9.11637C9.41994 9.13196 9.61646 9.13297 9.95748 9.13297H14.0503C14.3914 9.13297 14.5879 9.13196 14.7327 9.11637C14.8484 9.1039 14.8864 9.08007 14.9443 8.97743C15.0156 8.85096 15.0939 8.67133 15.2282 8.35852L18.0866 1.70411C18.2125 1.41112 18.5099 1.2297 18.8281 1.25182C19.1464 1.27393 19.4158 1.49475 19.4999 1.80234L22.5384 12.9183C22.6172 13.2065 22.6914 13.4777 22.7289 13.7129C22.8244 14.3109 22.6452 14.8468 22.2097 15.2676C22.0383 15.4332 21.8159 15.6057 21.5795 15.7892L13.6817 21.918C13.4077 22.1307 13.1525 22.3288 12.9203 22.4684C12.6625 22.6233 12.3647 22.75 12.0039 22.75C11.6431 22.75 11.3453 22.6233 11.0875 22.4684C10.8554 22.3288 10.6001 22.1307 10.3262 21.918L2.4283 15.7892C2.19187 15.6057 1.96954 15.4332 1.79812 15.2676C1.36258 14.8468 1.18343 14.3109 1.27889 13.7129C1.31644 13.4777 1.39061 13.2065 1.46943 12.9183L4.50794 1.80234C4.59201 1.49475 4.86146 1.27393 5.17969 1.25182Z" fill="currentColor"/><path d="M5.17969 1.25182C5.49792 1.2297 5.79535 1.41112 5.9212 1.70411L8.77957 8.35852C8.91393 8.67133 8.99219 8.85096 9.0635 8.97743C9.12411 9.08492 9.15475 9.1034 9.27513 9.11637C9.41994 9.13196 9.61646 9.13297 9.95748 9.13297H12.0039V22.75C11.6431 22.75 11.3453 22.6233 11.0875 22.4684C10.8554 22.3288 10.6001 22.1307 10.3262 21.918L2.4283 15.7892C2.19187 15.6057 1.96954 15.4332 1.79812 15.2676C1.36258 14.8468 1.18343 14.3109 1.27889 13.7129C1.31644 13.4777 1.39061 13.2065 1.46943 12.9183L4.50794 1.80234C4.59201 1.49475 4.86146 1.27393 5.17969 1.25182Z" fill="currentColor"/></svg>',
         'yt':  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path opacity="0.4" d="M11.9999 2.75C10.1413 2.75 8.3556 2.93356 6.69662 3.27174L6.56934 3.29766C4.67471 3.68329 3.41231 3.94024 2.32445 5.33892C1.24828 6.72258 1.24888 8.3272 1.24981 10.8124V13.1876C1.24888 15.6728 1.24828 17.2774 2.32445 18.6611C3.41231 20.0598 4.67471 20.3167 6.56934 20.7023L6.69662 20.7283C8.3556 21.0664 10.1413 21.25 11.9999 21.25C13.8585 21.25 15.6441 21.0664 17.3031 20.7283L17.4304 20.7023C19.325 20.3167 20.5874 20.0598 21.6753 18.6611C22.7515 17.2774 22.7509 15.6728 22.7499 13.1876V10.8124C22.7509 8.3272 22.7515 6.72258 21.6753 5.33892C20.5874 3.94024 19.325 3.68329 17.4304 3.29766L17.3031 3.27174C15.6441 2.93356 13.8585 2.75 11.9999 2.75Z" fill="currentColor"/><path d="M13.213 9.25173C12.4429 8.82163 11.813 8.46986 11.2945 8.25224C10.4515 7.89845 9.55759 7.86983 8.82288 8.47181C8.36304 8.84858 8.20049 9.38806 8.12917 9.93172C7.95674 11.2462 7.95682 12.7544 8.12917 14.0683C8.20049 14.6119 8.36304 15.1514 8.82288 15.5282C9.55759 16.1302 10.4515 16.1015 11.2945 15.7478C11.8131 15.5301 12.4429 15.1784 13.213 14.7483C13.8149 14.4122 14.4334 14.0897 14.9949 13.686C15.4145 13.3843 15.8126 13.0104 15.9444 12.4651C16.0184 12.159 16.0184 11.841 15.9444 11.5349C15.8126 10.9896 15.4145 10.6157 14.9949 10.314C14.4334 9.91029 13.8149 9.58784 13.213 9.25173Z" fill="currentColor"/></svg>',
@@ -829,7 +829,12 @@
         el.style.setProperty('--hint-color', cfg.color);
         el.innerHTML = `<span class="prefix-key">${key}:</span> ${cfg.label}`;
         el.addEventListener('click', () => {
-          searchInput.value = key + ': ';
+          const current = detectPrefix(searchInput.value);
+          if (current && current.key === key) {
+            searchInput.value = '';
+          } else {
+            searchInput.value = key + ': ';
+          }
           searchInput.focus();
           searchInput.dispatchEvent(new Event('input'));
         });
@@ -891,7 +896,7 @@
         }
       });
 
-      // ── Linear Proxy (now with auth) ──
+      // ─ Linear Proxy ─
       function escapeHtml(str) {
         const div = document.createElement('div');
         div.textContent = str;
@@ -1264,7 +1269,7 @@
             hour: '2-digit',
             minute: '2-digit',
           });
-          document.getElementById('f1-race-datetime').textContent = `${berlinDate} · ${berlinTime} Uhr (Berlin)`;
+          document.getElementById('f1-race-datetime').textContent = `${berlinDate} · ${berlinTime} Uhr`;
 
           // Start countdown
           updateF1Countdown();
