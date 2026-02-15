@@ -1185,12 +1185,14 @@
           const id = escapeHtml(issue.idReadable || '');
           const title = escapeHtml(issue.summary || '');
           const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
+          const age = issue.created ? relativeTime(new Date(issue.created).toISOString()) : '';
 
           return `
             <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
               <span class="status-dot" style="background: ${escapeHtml(stateColor)};" title="${escapeHtml(stateName)}"></span>
               <span class="text-muted text-[11px] flex-shrink-0">${id}</span>
               <span class="text-text-secondary text-[12px] truncate flex-1">${title}</span>
+              ${age ? `<span class="text-muted text-[10px] flex-shrink-0 tracking-wide">${age}</span>` : ''}
             </a>
           `;
         }).join('');
