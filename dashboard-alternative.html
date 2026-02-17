@@ -151,34 +151,6 @@
         min-height: 18px;
       }
 
-      /* Weekly summary modal */
-      #weekly-summary-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 100;
-        background: rgba(11, 11, 13, 0.9);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-      }
-      #weekly-summary-overlay.hidden { display: none; }
-      #weekly-summary-box {
-        width: 100%;
-        max-width: 640px;
-        max-height: 85vh;
-        background: #141416;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 12px;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-      }
-      #weekly-summary-body {
-        overflow-y: auto;
-        padding: 20px;
-      }
-
       /* Linear issue rows */
       .linear-issue-row {
         display: flex;
@@ -346,6 +318,39 @@
       }
 
 
+      /* Weekly review modal */
+      #weekly-modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+      }
+      #weekly-modal-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #weekly-modal {
+        width: 100%;
+        max-width: 640px;
+        max-height: 80vh;
+        overflow-y: auto;
+        scrollbar-width: none;
+        margin: 0 24px;
+        transform: translateY(8px);
+        transition: transform 0.25s ease;
+      }
+      #weekly-modal::-webkit-scrollbar { display: none; }
+      #weekly-modal-overlay.active #weekly-modal {
+        transform: translateY(0);
+      }
+
     </style>
   </head>
 
@@ -375,65 +380,6 @@
       </div>
     </div>
 
-    <!-- Weekly summary modal -->
-    <div id="weekly-summary-overlay" class="hidden">
-      <div id="weekly-summary-box" class="relative">
-        <button
-          id="weekly-summary-close"
-          title="Close"
-          class="absolute top-4 right-4 search-btn h-8 w-8 rounded-lg flex items-center justify-center text-muted-light cursor-pointer z-10"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <div class="px-6 pt-6 pb-3 border-b border-white/[0.04]">
-          <h2 class="text-text-primary font-medium text-[15px] tracking-wide">Last 7 days</h2>
-          <p class="text-muted text-[11px] tracking-wide mt-1">For weekly team meetings</p>
-        </div>
-        <div id="weekly-summary-body">
-          <!-- Linear section -->
-          <div class="mb-8">
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-1 h-4 rounded-full" style="background: #5E6AD2;"></div>
-              <h3 class="text-text-primary font-medium text-[13px] tracking-wide">Linear</h3>
-            </div>
-            <div id="weekly-linear-loading" class="hidden">
-              <div class="space-y-3">
-                <div class="skeleton-line w-3/4"></div>
-                <div class="skeleton-line w-1/2"></div>
-                <div class="skeleton-line w-2/3"></div>
-              </div>
-            </div>
-            <div id="weekly-linear-error" class="hidden text-muted-light text-[13px]"></div>
-            <div id="weekly-linear-data" class="hidden dash-card p-0 overflow-hidden" style="--card-color: #5E6AD2">
-              <div id="weekly-linear-list"></div>
-              <div id="weekly-linear-empty" class="hidden px-5 py-5 text-muted text-[12px]">No completed issues in the last 7 days</div>
-            </div>
-          </div>
-          <!-- YouTrack section -->
-          <div>
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-1 h-4 rounded-full" style="background: #E20F86;"></div>
-              <h3 class="text-text-primary font-medium text-[13px] tracking-wide">YouTrack</h3>
-            </div>
-            <div id="weekly-yt-loading" class="hidden">
-              <div class="space-y-3">
-                <div class="skeleton-line w-3/4"></div>
-                <div class="skeleton-line w-1/2"></div>
-                <div class="skeleton-line w-2/3"></div>
-              </div>
-            </div>
-            <div id="weekly-yt-error" class="hidden text-muted-light text-[13px]"></div>
-            <div id="weekly-yt-data" class="hidden dash-card p-0 overflow-hidden" style="--card-color: #E20F86">
-              <div id="weekly-yt-list"></div>
-              <div id="weekly-yt-empty" class="hidden px-5 py-5 text-muted text-[12px]">No solved tickets in the last 7 days</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Main content (hidden until authenticated) -->
     <main class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 lg:py-20 mx-auto" style="max-width: 1060px; display: none;">
 
@@ -441,20 +387,25 @@
       <header class="flex items-start justify-between mb-14 gs-hidden" id="header">
         <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">Hey!&nbsp;👋</h1>
         <div class="flex items-center gap-4">
-          <button
-            id="weekly-summary-btn"
-            title="Last 7 days"
-            class="search-btn h-8 px-3 rounded-lg flex items-center gap-2 text-[12px] text-muted-light cursor-pointer"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Last 7 days
-          </button>
           <div class="text-right text-muted-light text-xs leading-relaxed tracking-wide">
             <div id="date-display"></div>
             <div><span id="time-display">00:00:00</span> Uhr</div>
           </div>
+          <button
+            id="weekly-btn"
+            title="Weekly Review"
+            class="search-btn h-8 px-3 rounded-lg flex items-center gap-2 text-[11px] text-muted-light cursor-pointer tracking-wide"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3.5 5.5L5 7L8 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3.5 11.5L5 13L8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M3.5 17.5L5 19L8 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M11 6H20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M11 12H20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M11 18H20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Weekly
+          </button>
           <button
             id="logout-btn"
             title="Logout"
@@ -848,6 +799,62 @@
       </div>
 
     </main>
+
+    <!-- Weekly Review Modal -->
+    <div id="weekly-modal-overlay">
+      <div id="weekly-modal" class="dash-card p-0" style="--card-color: #5E6AD2">
+        <div class="sticky top-0 z-10 px-6 pt-6 pb-4" style="background: #141416; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-text-primary font-medium text-[15px]">Weekly Review</h2>
+              <p class="text-muted text-[11px] tracking-wide mt-1" id="weekly-date-range"></p>
+            </div>
+            <button id="weekly-close-btn" class="text-muted-light hover:text-text-primary transition-colors cursor-pointer p-1">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="weekly-content" class="p-6">
+          <!-- Loading -->
+          <div id="weekly-loading" class="hidden space-y-3">
+            <div class="skeleton-line w-1/3"></div>
+            <div class="skeleton-line w-3/4"></div>
+            <div class="skeleton-line w-1/2"></div>
+            <div class="skeleton-line w-2/3"></div>
+            <div class="skeleton-line w-3/5"></div>
+          </div>
+          <!-- Error -->
+          <div id="weekly-error" class="hidden text-center py-4">
+            <p class="text-muted-light text-[13px]" id="weekly-error-msg"></p>
+          </div>
+          <!-- Data -->
+          <div id="weekly-data" class="hidden space-y-6">
+            <!-- Linear section -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-1 h-3 rounded-full" style="background: #5E6AD2;"></div>
+                <span class="text-muted text-[11px] tracking-wide uppercase">Linear — Completed</span>
+                <span class="text-muted text-[11px] tracking-wide" id="weekly-linear-count"></span>
+              </div>
+              <div id="weekly-linear-list"></div>
+              <div id="weekly-linear-empty" class="hidden text-muted text-[12px] py-2">No completed issues</div>
+            </div>
+            <!-- YouTrack section -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-1 h-3 rounded-full" style="background: #E20F86;"></div>
+                <span class="text-muted text-[11px] tracking-wide uppercase">YouTrack — Resolved</span>
+                <span class="text-muted text-[11px] tracking-wide" id="weekly-youtrack-count"></span>
+              </div>
+              <div id="weekly-youtrack-list"></div>
+              <div id="weekly-youtrack-empty" class="hidden text-muted text-[12px] py-2">No resolved tickets</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script>
       // ─ Dev mode: bypass auth & gracefully handle API when running locally ─
@@ -1320,15 +1327,17 @@
       }
 
       // ── YouTrack Proxy ──
-      async function youtrackQuery(query, options = {}) {
+      async function youtrackQuery(query, top) {
         const token = getToken();
+        const reqBody = { query };
+        if (top) reqBody.top = top;
         const res = await fetch(`${WORKER_URL}/youtrack`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({ query, top: options.top }),
+          body: JSON.stringify(reqBody),
         });
 
         if (res.status === 401) {
@@ -1419,157 +1428,6 @@
           showYouTrackState('error');
         }
       }
-
-      // ── Weekly Summary Modal ──
-      function closeWeeklySummaryModal() {
-        document.getElementById('weekly-summary-overlay').classList.add('hidden');
-      }
-
-      function showWeeklyLinearState(state) {
-        document.getElementById('weekly-linear-loading').classList.toggle('hidden', state !== 'loading');
-        document.getElementById('weekly-linear-error').classList.toggle('hidden', state !== 'error');
-        document.getElementById('weekly-linear-data').classList.toggle('hidden', state !== 'data');
-      }
-
-      function showWeeklyYTState(state) {
-        document.getElementById('weekly-yt-loading').classList.toggle('hidden', state !== 'loading');
-        document.getElementById('weekly-yt-error').classList.toggle('hidden', state !== 'error');
-        document.getElementById('weekly-yt-data').classList.toggle('hidden', state !== 'data');
-      }
-
-      async function fetchWeeklySummaryLinear() {
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const query = `{
-          viewer {
-            assignedIssues(
-              first: 50
-              orderBy: completedAt
-              filter: {
-                state: { type: { eq: "completed" } }
-                completedAt: { gte: "${sevenDaysAgo}" }
-              }
-            ) {
-              nodes {
-                identifier
-                title
-                state { name color }
-                completedAt
-                url
-              }
-            }
-          }
-        }`;
-        const data = await linearQuery(query);
-        return data.viewer.assignedIssues.nodes;
-      }
-
-      async function fetchWeeklySummaryYouTrack() {
-        const issues = await youtrackQuery('#Resolved resolved: {minus 7d}..Today project: IT, {Rail Network Support}', { top: 50 });
-        return Array.isArray(issues) ? issues : [];
-      }
-
-      function renderWeeklyLinearIssues(issues) {
-        const container = document.getElementById('weekly-linear-list');
-        const empty = document.getElementById('weekly-linear-empty');
-        if (!issues.length) {
-          container.innerHTML = '';
-          empty.classList.remove('hidden');
-          return;
-        }
-        empty.classList.add('hidden');
-        issues.sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0));
-        container.innerHTML = issues.map(issue => `
-          <a href="${escapeHtml(issue.url)}" target="_blank" rel="noopener" class="linear-issue-row">
-            <span class="status-dot" style="background: ${escapeHtml(issue.state?.color || '#505058')};" title="${escapeHtml(issue.state?.name || '')}"></span>
-            <span class="text-muted text-[11px] flex-shrink-0">${escapeHtml(issue.identifier)}</span>
-            <span class="text-text-secondary text-[12px] truncate flex-1">${escapeHtml(issue.title)}</span>
-            <span class="text-muted text-[10px] flex-shrink-0 tracking-wide">${relativeTime(issue.completedAt)}</span>
-          </a>
-        `).join('');
-      }
-
-      function renderWeeklyYTIssues(issues) {
-        const container = document.getElementById('weekly-yt-list');
-        const empty = document.getElementById('weekly-yt-empty');
-        if (!issues.length) {
-          container.innerHTML = '';
-          empty.classList.remove('hidden');
-          return;
-        }
-        empty.classList.add('hidden');
-        container.innerHTML = issues.map(issue => {
-          const state = getYouTrackField(issue, 'State');
-          const stateColor = state?.color?.background || '#505058';
-          const stateName = state?.name || '';
-          const id = escapeHtml(issue.idReadable || '');
-          const title = escapeHtml(issue.summary || '');
-          const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
-          const age = issue.created ? relativeTime(new Date(issue.created).toISOString()) : '';
-          return `
-            <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
-              <span class="status-dot" style="background: ${escapeHtml(stateColor)};" title="${escapeHtml(stateName)}"></span>
-              <span class="text-muted text-[11px] flex-shrink-0">${id}</span>
-              <span class="text-text-secondary text-[12px] truncate flex-1">${title}</span>
-              ${age ? `<span class="text-muted text-[10px] flex-shrink-0 tracking-wide">${age}</span>` : ''}
-            </a>
-          `;
-        }).join('');
-      }
-
-      async function openWeeklySummaryModal() {
-        document.getElementById('weekly-summary-overlay').classList.remove('hidden');
-        showWeeklyLinearState('loading');
-        showWeeklyYTState('loading');
-
-        const linearErr = (msg) => {
-          document.getElementById('weekly-linear-error').textContent = msg;
-          showWeeklyLinearState('error');
-        };
-        const ytErr = (msg) => {
-          document.getElementById('weekly-yt-error').textContent = msg;
-          showWeeklyYTState('error');
-        };
-
-        const [linearResult, ytResult] = await Promise.allSettled([
-          fetchWeeklySummaryLinear(),
-          fetchWeeklySummaryYouTrack(),
-        ]);
-
-        if (linearResult.status === 'fulfilled') {
-          renderWeeklyLinearIssues(linearResult.value);
-          showWeeklyLinearState('data');
-        } else {
-          const err = linearResult.reason?.message || 'Unknown error';
-          if (IS_LOCAL) {
-            linearErr('Dev mode — Linear API unavailable (CORS). Push to live domain to test.');
-          } else {
-            linearErr(err.includes('401') || err.includes('Unauthorized') ? 'Session expired.' : `Linear: ${err}`);
-          }
-        }
-
-        if (ytResult.status === 'fulfilled') {
-          renderWeeklyYTIssues(ytResult.value);
-          showWeeklyYTState('data');
-        } else {
-          const err = ytResult.reason?.message || 'Unknown error';
-          if (IS_LOCAL) {
-            ytErr('Dev mode — YouTrack API unavailable (CORS). Push to live domain to test.');
-          } else {
-            ytErr(err.includes('401') || err.includes('Unauthorized') ? 'Session expired.' : `YouTrack: ${err}`);
-          }
-        }
-      }
-
-      document.getElementById('weekly-summary-btn').addEventListener('click', openWeeklySummaryModal);
-      document.getElementById('weekly-summary-close').addEventListener('click', closeWeeklySummaryModal);
-      document.getElementById('weekly-summary-overlay').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('weekly-summary-overlay')) closeWeeklySummaryModal();
-      });
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !document.getElementById('weekly-summary-overlay').classList.contains('hidden')) {
-          closeWeeklySummaryModal();
-        }
-      });
 
       // ── GitLab Proxy ──
       async function gitlabQuery() {
@@ -1799,6 +1657,149 @@
         } else {
           liveLabel.textContent = '';
         }
+      }
+
+      // ── Weekly Review Modal ──
+      function openWeeklyModal() {
+        document.getElementById('weekly-modal-overlay').classList.add('active');
+        const now = new Date();
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        document.getElementById('weekly-date-range').textContent =
+          `${formatDateDE(weekAgo.toISOString())} – ${formatDateDE(now.toISOString())}`;
+        fetchWeeklyData();
+      }
+
+      function closeWeeklyModal() {
+        document.getElementById('weekly-modal-overlay').classList.remove('active');
+      }
+
+      document.getElementById('weekly-btn').addEventListener('click', openWeeklyModal);
+      document.getElementById('weekly-close-btn').addEventListener('click', closeWeeklyModal);
+      document.getElementById('weekly-modal-overlay').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeWeeklyModal();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('weekly-modal-overlay').classList.contains('active')) {
+          closeWeeklyModal();
+        }
+      });
+
+      function showWeeklyState(state) {
+        document.getElementById('weekly-loading').classList.toggle('hidden', state !== 'loading');
+        document.getElementById('weekly-error').classList.toggle('hidden', state !== 'error');
+        document.getElementById('weekly-data').classList.toggle('hidden', state !== 'data');
+      }
+
+      async function fetchWeeklyLinearIssues() {
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const query = `{
+          viewer {
+            assignedIssues(
+              first: 50
+              orderBy: updatedAt
+              filter: {
+                state: { type: { eq: "completed" } }
+                completedAt: { gte: "${weekAgo}" }
+              }
+            ) {
+              nodes {
+                identifier
+                title
+                completedAt
+                state { name color }
+                url
+              }
+            }
+          }
+        }`;
+        const data = await linearQuery(query);
+        return data.viewer.assignedIssues.nodes;
+      }
+
+      async function fetchWeeklyYouTrackIssues() {
+        return await youtrackQuery('Assignee: me resolved date: -1w ..Today', 50);
+      }
+
+      function renderWeeklyLinearIssues(issues) {
+        const container = document.getElementById('weekly-linear-list');
+        const empty = document.getElementById('weekly-linear-empty');
+        const count = document.getElementById('weekly-linear-count');
+        count.textContent = `(${issues.length})`;
+
+        if (!issues.length) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        empty.classList.add('hidden');
+        container.innerHTML = '<div class="dash-card p-0 overflow-hidden" style="--card-color: #5E6AD2">' +
+          issues.map(issue => `
+            <a href="${escapeHtml(issue.url)}" target="_blank" rel="noopener" class="linear-issue-row">
+              <span class="status-dot" style="background: ${escapeHtml(issue.state.color)};"></span>
+              <span class="text-muted text-[11px] flex-shrink-0">${escapeHtml(issue.identifier)}</span>
+              <span class="text-text-secondary text-[12px] truncate flex-1">${escapeHtml(issue.title)}</span>
+              ${issue.completedAt ? `<span class="text-muted text-[10px] flex-shrink-0 tracking-wide">${relativeTime(issue.completedAt)}</span>` : ''}
+            </a>
+          `).join('') + '</div>';
+      }
+
+      function renderWeeklyYouTrackIssues(issues) {
+        const container = document.getElementById('weekly-youtrack-list');
+        const empty = document.getElementById('weekly-youtrack-empty');
+        const count = document.getElementById('weekly-youtrack-count');
+        count.textContent = `(${issues.length})`;
+
+        if (!issues.length) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        empty.classList.add('hidden');
+        container.innerHTML = '<div class="dash-card p-0 overflow-hidden" style="--card-color: #E20F86">' +
+          issues.map(issue => {
+            const state = getYouTrackField(issue, 'State');
+            const stateColor = state?.color?.background || '#505058';
+            const stateName = state?.name || '';
+            const id = escapeHtml(issue.idReadable || '');
+            const title = escapeHtml(issue.summary || '');
+            const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
+            const age = issue.resolved ? relativeTime(new Date(issue.resolved).toISOString()) : '';
+            return `
+              <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
+                <span class="status-dot" style="background: ${escapeHtml(stateColor)};" title="${escapeHtml(stateName)}"></span>
+                <span class="text-muted text-[11px] flex-shrink-0">${id}</span>
+                <span class="text-text-secondary text-[12px] truncate flex-1">${title}</span>
+                ${age ? `<span class="text-muted text-[10px] flex-shrink-0 tracking-wide">${age}</span>` : ''}
+              </a>
+            `;
+          }).join('') + '</div>';
+      }
+
+      async function fetchWeeklyData() {
+        showWeeklyState('loading');
+        const errors = [];
+        const [linearIssues, youtrackIssues] = await Promise.all([
+          fetchWeeklyLinearIssues().catch(err => { errors.push('Linear: ' + err.message); return []; }),
+          fetchWeeklyYouTrackIssues().catch(err => { errors.push('YouTrack: ' + err.message); return []; }),
+        ]);
+
+        if (errors.length === 2) {
+          if (IS_LOCAL) {
+            document.getElementById('weekly-error-msg').textContent =
+              'Dev mode — APIs unavailable (CORS). Push to live domain to test.';
+            showWeeklyState('error');
+            return;
+          }
+          document.getElementById('weekly-error-msg').textContent = errors.join(' | ');
+          showWeeklyState('error');
+          return;
+        }
+
+        renderWeeklyLinearIssues(linearIssues);
+        renderWeeklyYouTrackIssues(youtrackIssues);
+        showWeeklyState('data');
       }
 
       // ── Dashboard init (called after successful auth) ──

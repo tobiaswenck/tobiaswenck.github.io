@@ -306,7 +306,7 @@ async function handleYouTrack(request, env) {
   ytUrl.searchParams.set("$top", body.top || "20");
   ytUrl.searchParams.set(
     "fields",
-    "idReadable,summary,project(shortName),created,customFields(name,$type,value(name,color(background)))",
+    "idReadable,summary,project(shortName),created,resolved,customFields(name,$type,value(name,color(background)))",
   );
 
   const ytRes = await fetch(ytUrl.toString(), {
