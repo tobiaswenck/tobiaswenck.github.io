@@ -1717,7 +1717,7 @@
       }
 
       async function fetchWeeklyYouTrackIssues() {
-        return await youtrackQuery('Assignee: me resolved date: -1w ..Today', 50);
+        return await youtrackQuery('#Resolved Assignee: {Tobias Wenck} resolved date: -1w ..Today', 50);
       }
 
       function renderWeeklyLinearIssues(issues) {
