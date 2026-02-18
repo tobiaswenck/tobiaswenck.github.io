@@ -218,6 +218,14 @@
         letter-spacing: -0.03em;
         font-variant-numeric: tabular-nums;
       }
+      .stat-delta {
+        font-size: 11px;
+        font-weight: 500;
+        display: inline-block;
+        margin-left: 6px;
+        vertical-align: baseline;
+        opacity: 0;
+      }
 
       /* Chart.js overrides */
       canvas { border-radius: 8px; }
@@ -270,12 +278,21 @@
           <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">Weekly Report</h1>
           <p class="text-muted text-[11px] tracking-wide mt-2" id="date-range"></p>
         </div>
-        <a href="dashboard-alternative.html" class="back-link h-8 px-3 rounded-lg flex items-center gap-2 text-[11px] text-muted-light tracking-wide no-underline">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Dashboard
-        </a>
+        <div class="flex items-center gap-2">
+          <button id="export-btn" class="back-link h-8 px-3 rounded-lg flex items-center gap-2 text-[11px] text-muted-light tracking-wide cursor-pointer" style="display:none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 3H15V5H9V3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span id="export-btn-label">Export</span>
+          </button>
+          <a href="dashboard-alternative.html" class="back-link h-8 px-3 rounded-lg flex items-center gap-2 text-[11px] text-muted-light tracking-wide no-underline">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Dashboard
+          </a>
+        </div>
       </header>
 
       <!-- Terminal boot card -->
@@ -311,17 +328,17 @@
             <div class="dash-card p-5" style="--card-color: #5E6AD2">
               <div class="card-glow"></div>
               <p class="text-muted text-[10px] tracking-wide uppercase mb-3">Total Completed</p>
-              <p class="stat-value text-text-primary" id="stat-total">0</p>
+              <p class="stat-value text-text-primary" id="stat-total">0<span class="stat-delta" id="stat-total-delta"></span></p>
             </div>
             <div class="dash-card p-5" style="--card-color: #5E6AD2">
               <div class="card-glow"></div>
               <p class="text-muted text-[10px] tracking-wide uppercase mb-3">Linear</p>
-              <p class="stat-value text-text-primary" id="stat-linear">0</p>
+              <p class="stat-value text-text-primary" id="stat-linear">0<span class="stat-delta" id="stat-linear-delta"></span></p>
             </div>
             <div class="dash-card p-5" style="--card-color: #E20F86">
               <div class="card-glow"></div>
               <p class="text-muted text-[10px] tracking-wide uppercase mb-3">YouTrack</p>
-              <p class="stat-value text-text-primary" id="stat-youtrack">0</p>
+              <p class="stat-value text-text-primary" id="stat-youtrack">0<span class="stat-delta" id="stat-youtrack-delta"></span></p>
             </div>
             <div class="dash-card p-5" style="--card-color: #34D399">
               <div class="card-glow"></div>
@@ -609,6 +626,41 @@
         return await youtrackQuery(`#Resolved Bearbeiter: tobias.wenck resolved date: ${y}-${m}-${d} .. Today project: IT, {Rail Network Support}`, 50);
       }
 
+      function fmtDateParam(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+
+      async function fetchPreviousWeekLinearIssues() {
+        const { start } = getReportRange();
+        const prevStart = new Date(start);
+        prevStart.setDate(prevStart.getDate() - 7);
+        const query = `{
+          viewer {
+            assignedIssues(
+              first: 50
+              orderBy: updatedAt
+              filter: {
+                state: { type: { eq: "completed" } }
+                completedAt: { gte: "${prevStart.toISOString()}", lt: "${start.toISOString()}" }
+              }
+            ) {
+              nodes { identifier }
+            }
+          }
+        }`;
+        const data = await linearQuery(query);
+        return data.viewer.assignedIssues.nodes;
+      }
+
+      async function fetchPreviousWeekYouTrackIssues() {
+        const { start } = getReportRange();
+        const prevStart = new Date(start);
+        prevStart.setDate(prevStart.getDate() - 7);
+        const endDate = new Date(start);
+        endDate.setDate(endDate.getDate() - 1);
+        return await youtrackQuery(`#Resolved Bearbeiter: tobias.wenck resolved date: ${fmtDateParam(prevStart)} .. ${fmtDateParam(endDate)} project: IT, {Rail Network Support}`, 50);
+      }
+
       // ── Renderers ──
       function renderLinearIssues(issues) {
         const container = document.getElementById('linear-list');
@@ -821,15 +873,25 @@
         document.getElementById('doughnut-total').textContent = total;
       }
 
+      // ── Delta badge ──
+      function renderDelta(el, current, previous) {
+        if (previous == null) return;
+        const diff = current - previous;
+        if (diff > 0) { el.textContent = `+${diff}`; el.style.color = '#34D399'; }
+        else if (diff < 0) { el.textContent = `${diff}`; el.style.color = '#F26F60'; }
+        else { el.textContent = '+0'; el.style.color = '#505058'; }
+      }
+
       // ── Counter tick-up ──
       function animateCounter(el, target) {
+        const textNode = el.firstChild;
         const obj = { val: 0 };
         gsap.to(obj, {
           val: target,
           duration: 0.8,
           ease: 'power2.out',
           snap: { val: 1 },
-          onUpdate: () => { el.textContent = Math.round(obj.val); }
+          onUpdate: () => { textNode.nodeValue = Math.round(obj.val); }
         });
       }
 
@@ -864,11 +926,99 @@
       notesEl.value = sessionStorage.getItem('weekly_notes') || '';
       notesEl.addEventListener('input', () => sessionStorage.setItem('weekly_notes', notesEl.value));
 
+      // ── Markdown export ──
+      function deltaText(current, previous) {
+        if (previous == null) return '';
+        const diff = current - previous;
+        if (diff > 0) return `, +${diff} vs last week`;
+        if (diff < 0) return `, ${diff} vs last week`;
+        return ', same as last week';
+      }
+
+      function buildMarkdownReport() {
+        const linearCount = reportLinearIssues.length;
+        const ytCount = reportYouTrackIssues.length;
+        const total = linearCount + ytCount;
+        const prevTotal = (reportPrevLinearCount != null && reportPrevYouTrackCount != null)
+          ? reportPrevLinearCount + reportPrevYouTrackCount : null;
+
+        let md = `## Weekly Report (${reportDateRange})\n\n`;
+
+        md += `This week, ${total} issue${total !== 1 ? 's were' : ' was'} completed across Linear and YouTrack`;
+        if (prevTotal != null) {
+          const diff = total - prevTotal;
+          if (diff > 0) md += ` — up from ${prevTotal} last week (+${diff})`;
+          else if (diff < 0) md += ` — down from ${prevTotal} last week (${diff})`;
+          else md += ` — same as last week (${prevTotal})`;
+        }
+        md += `. The busiest day was ${reportBusiestDay}.\n`;
+
+        // Linear section
+        if (linearCount > 0) {
+          md += `\n### Linear (${linearCount} issue${linearCount !== 1 ? 's' : ''}${deltaText(linearCount, reportPrevLinearCount)})\n\n`;
+          const highlights = reportLinearIssues.slice(0, 3);
+          const remaining = linearCount - highlights.length;
+          md += `Completed ${linearCount} issue${linearCount !== 1 ? 's' : ''} in Linear this week. Key items include `;
+          md += highlights.map(i => `${i.title} (${i.identifier})`).join(', ');
+          if (remaining > 0) md += `, and ${remaining} more`;
+          md += '.\n';
+          md += '\n**Full list:**\n';
+          reportLinearIssues.forEach(i => { md += `- ${i.identifier} — ${i.title}\n`; });
+        }
+
+        // YouTrack section
+        if (ytCount > 0) {
+          md += `\n### YouTrack (${ytCount} ticket${ytCount !== 1 ? 's' : ''}${deltaText(ytCount, reportPrevYouTrackCount)})\n\n`;
+          const highlights = reportYouTrackIssues.slice(0, 3);
+          const remaining = ytCount - highlights.length;
+          md += `Resolved ${ytCount} ticket${ytCount !== 1 ? 's' : ''} in YouTrack this week. Key items include `;
+          md += highlights.map(i => `${i.summary || ''} (${i.idReadable || ''})`).join(', ');
+          if (remaining > 0) md += `, and ${remaining} more`;
+          md += '.\n';
+          md += '\n**Full list:**\n';
+          reportYouTrackIssues.forEach(i => { md += `- ${i.idReadable || ''} — ${i.summary || ''}\n`; });
+        }
+
+        // Notes
+        const notes = document.getElementById('notes-textarea').value.trim();
+        if (notes) {
+          md += `\n### Notes\n\n${notes}\n`;
+        }
+
+        return md;
+      }
+
+      document.getElementById('export-btn').addEventListener('click', async () => {
+        const md = buildMarkdownReport();
+        try {
+          await navigator.clipboard.writeText(md);
+          const label = document.getElementById('export-btn-label');
+          label.textContent = 'Copied!';
+          setTimeout(() => { label.textContent = 'Export'; }, 1500);
+        } catch {
+          const blob = new Blob([md], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'weekly-report.md';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      });
+
       // ── Show state helper ──
       function showReportState(state) {
         document.getElementById('report-error').classList.toggle('hidden', state !== 'error');
         document.getElementById('report-data').classList.toggle('hidden', state !== 'data');
       }
+
+      // ── Report state (for export) ──
+      let reportLinearIssues = [];
+      let reportYouTrackIssues = [];
+      let reportPrevLinearCount = null;
+      let reportPrevYouTrackCount = null;
+      let reportBusiestDay = '—';
+      let reportDateRange = '';
 
       // ── Main init ──
       let reportInitialized = false;
@@ -878,8 +1028,8 @@
         reportInitialized = true;
 
         const { start, end } = getReportRange();
-        document.getElementById('date-range').textContent =
-          `${formatDateDE(start.toISOString())} – ${formatDateDE(end.toISOString())}`;
+        reportDateRange = `${formatDateDE(start.toISOString())} – ${formatDateDE(end.toISOString())}`;
+        document.getElementById('date-range').textContent = reportDateRange;
 
         // Phase 1: Animate header + boot card in
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
@@ -932,7 +1082,12 @@
         })();
 
         const result = await Promise.all([dataPromise, typingPromise]);
-        const { linearIssues, youtrackIssues, hasError } = result[0];
+        const { linearIssues, youtrackIssues, prevLinearCount, prevYouTrackCount, hasError } = result[0];
+
+        reportLinearIssues = linearIssues;
+        reportYouTrackIssues = youtrackIssues;
+        reportPrevLinearCount = prevLinearCount;
+        reportPrevYouTrackCount = prevYouTrackCount;
 
         // Phase 3: crossfade boot card -> report content
         document.querySelectorAll('.wk-cursor').forEach(c => { c.style.display = 'none'; });
@@ -953,6 +1108,7 @@
         renderLinearIssues(linearIssues);
         renderYouTrackIssues(youtrackIssues);
         showReportState('data');
+        document.getElementById('export-btn').style.display = '';
 
         // Compute stats
         const totalCount = linearIssues.length + youtrackIssues.length;
@@ -963,6 +1119,7 @@
           const best = dailyStats.reduce((a, b) => (a.linear + a.youtrack) >= (b.linear + b.youtrack) ? a : b);
           if (best.linear + best.youtrack > 0) busiestDay = best.label;
         }
+        reportBusiestDay = busiestDay;
 
         // Render charts (initially hidden, will animate when revealed)
         renderCharts(dailyStats, linearIssues.length, youtrackIssues.length);
@@ -1002,6 +1159,16 @@
           document.getElementById('stat-busiest').textContent = busiestDay;
         }, 0.15);
 
+        // Week-over-week delta badges
+        const prevTotal = (prevLinearCount != null && prevYouTrackCount != null)
+          ? prevLinearCount + prevYouTrackCount : null;
+        renderDelta(document.getElementById('stat-total-delta'), totalCount, prevTotal);
+        renderDelta(document.getElementById('stat-linear-delta'), linearIssues.length, prevLinearCount);
+        renderDelta(document.getElementById('stat-youtrack-delta'), youtrackIssues.length, prevYouTrackCount);
+
+        const deltaEls = document.querySelectorAll('.stat-delta');
+        revealTl.to(deltaEls, { opacity: 1, duration: 0.35, stagger: 0.06, ease: 'power2.out' }, 0.6);
+
         // Glow pulse on stat cards
         document.querySelectorAll('#stats-row .card-glow').forEach((glow, i) => {
           revealTl.to(glow, { opacity: 1, duration: 0.3 }, 0.1 + i * 0.05);
@@ -1011,9 +1178,11 @@
 
       async function fetchAllData() {
         const errors = [];
-        const [linearIssues, youtrackIssues] = await Promise.all([
+        const [linearIssues, youtrackIssues, prevLinear, prevYouTrack] = await Promise.all([
           fetchWeeklyLinearIssues().catch(err => { errors.push('Linear: ' + err.message); return []; }),
           fetchWeeklyYouTrackIssues().catch(err => { errors.push('YouTrack: ' + err.message); return []; }),
+          fetchPreviousWeekLinearIssues().catch(() => null),
+          fetchPreviousWeekYouTrackIssues().catch(() => null),
         ]);
 
         if (errors.length === 2) {
@@ -1021,14 +1190,20 @@
             document.getElementById('report-error-msg').textContent =
               'Dev mode — APIs unavailable (CORS). Push to live domain to test.';
             showReportState('error');
-            return { linearIssues: [], youtrackIssues: [], hasError: true };
+            return { linearIssues: [], youtrackIssues: [], prevLinearCount: null, prevYouTrackCount: null, hasError: true };
           }
           document.getElementById('report-error-msg').textContent = errors.join(' | ');
           showReportState('error');
-          return { linearIssues: [], youtrackIssues: [], hasError: true };
+          return { linearIssues: [], youtrackIssues: [], prevLinearCount: null, prevYouTrackCount: null, hasError: true };
         }
 
-        return { linearIssues, youtrackIssues, hasError: false };
+        return {
+          linearIssues,
+          youtrackIssues,
+          prevLinearCount: prevLinear ? prevLinear.length : null,
+          prevYouTrackCount: prevYouTrack ? prevYouTrack.length : null,
+          hasError: false,
+        };
       }
 
       // ── Boot check (must be after all declarations) ──
