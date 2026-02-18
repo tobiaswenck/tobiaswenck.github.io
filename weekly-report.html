@@ -560,8 +560,17 @@
       }
 
       // ── Data fetchers ──
+      // 8-day window: same weekday last week through today (e.g. Wed–Wed)
+      function getReportRange() {
+        const now = new Date();
+        const start = new Date(now);
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+        return { start, end: now };
+      }
+
       async function fetchWeeklyLinearIssues() {
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { start } = getReportRange();
         const query = `{
           viewer {
             assignedIssues(
@@ -569,7 +578,7 @@
               orderBy: updatedAt
               filter: {
                 state: { type: { eq: "completed" } }
-                completedAt: { gte: "${weekAgo}" }
+                completedAt: { gte: "${start.toISOString()}" }
               }
             ) {
               nodes {
@@ -587,10 +596,10 @@
       }
 
       async function fetchWeeklyYouTrackIssues() {
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const y = weekAgo.getFullYear();
-        const m = String(weekAgo.getMonth() + 1).padStart(2, '0');
-        const d = String(weekAgo.getDate()).padStart(2, '0');
+        const { start } = getReportRange();
+        const y = start.getFullYear();
+        const m = String(start.getMonth() + 1).padStart(2, '0');
+        const d = String(start.getDate()).padStart(2, '0');
         return await youtrackQuery(`#Resolved Bearbeiter: tobias.wenck resolved date: ${y}-${m}-${d} .. Today project: IT, {Rail Network Support}`, 50);
       }
 
@@ -640,8 +649,8 @@
             const id = escapeHtml(issue.idReadable || '');
             const title = escapeHtml(issue.summary || '');
             const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
-            const resolvedDate = issue.resolved ? new Date(issue.resolved) : null;
-            const age = resolvedDate && !isNaN(resolvedDate) ? relativeTime(resolvedDate.toISOString()) : '';
+            const resolvedDate = issue.resolved != null ? new Date(issue.resolved) : null;
+            const age = resolvedDate && !isNaN(resolvedDate.getTime()) ? relativeTime(resolvedDate.toISOString()) : '';
             return `
               <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
                 <span class="status-dot" style="background: ${escapeHtml(stateColor)};" title="${escapeHtml(stateName)}"></span>
@@ -658,29 +667,35 @@
       Chart.defaults.font.family = '"Geist Mono", monospace';
       Chart.defaults.font.size = 10;
 
-      // ── Compute daily breakdown for charts ──
+      function toLocalDateKey(date) {
+        const d = new Date(date);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+
+      // ── Compute daily breakdown for charts (8 days: same weekday last week through today) ──
       function computeDailyStats(linearIssues, youtrackIssues) {
         const days = [];
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const now = new Date();
 
-        for (let i = 6; i >= 0; i--) {
+        for (let i = 7; i >= 0; i--) {
           const d = new Date(now);
           d.setDate(d.getDate() - i);
-          const key = d.toISOString().slice(0, 10);
+          const key = toLocalDateKey(d);
           days.push({ key, label: dayNames[d.getDay()], linear: 0, youtrack: 0 });
         }
 
         linearIssues.forEach(issue => {
           if (!issue.completedAt) return;
-          const key = new Date(issue.completedAt).toISOString().slice(0, 10);
+          const key = toLocalDateKey(issue.completedAt);
           const day = days.find(d => d.key === key);
           if (day) day.linear++;
         });
 
         youtrackIssues.forEach(issue => {
-          if (!issue.resolved) return;
-          const key = new Date(issue.resolved).toISOString().slice(0, 10);
+          const ts = issue.resolved;
+          if (ts == null) return;
+          const key = toLocalDateKey(ts);
           const day = days.find(d => d.key === key);
           if (day) day.youtrack++;
         });
@@ -850,10 +865,9 @@
         if (reportInitialized) return;
         reportInitialized = true;
 
-        const now = new Date();
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const { start, end } = getReportRange();
         document.getElementById('date-range').textContent =
-          `${formatDateDE(weekAgo.toISOString())} – ${formatDateDE(now.toISOString())}`;
+          `${formatDateDE(start.toISOString())} – ${formatDateDE(end.toISOString())}`;
 
         // Phase 1: Animate header + boot card in
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
