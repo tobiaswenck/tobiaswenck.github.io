@@ -476,14 +476,6 @@
         }
       });
 
-      // ── Boot check ──
-      if (IS_LOCAL || isTokenValid()) {
-        showApp();
-        initReport();
-      } else if (getToken()) {
-        logout();
-      }
-
       // ── Shared helpers ──
       function escapeHtml(str) {
         const div = document.createElement('div');
@@ -1010,6 +1002,14 @@
         }
 
         return { linearIssues, youtrackIssues, hasError: false };
+      }
+
+      // ── Boot check (must be after all declarations) ──
+      if (IS_LOCAL || isTokenValid()) {
+        showApp();
+        initReport();
+      } else if (getToken()) {
+        logout();
       }
     </script>
   </body>
