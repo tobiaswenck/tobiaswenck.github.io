@@ -1717,7 +1717,11 @@
       }
 
       async function fetchWeeklyYouTrackIssues() {
-        return await youtrackQuery('#Resolved Assignee: {Tobias Wenck} resolved date: -1w ..Today', 50);
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const y = weekAgo.getFullYear();
+        const m = String(weekAgo.getMonth() + 1).padStart(2, '0');
+        const d = String(weekAgo.getDate()).padStart(2, '0');
+        return await youtrackQuery(`#Resolved resolved date: ${y}-${m}-${d} .. Today project: IT, {Rail Network Support}`, 50);
       }
 
       function renderWeeklyLinearIssues(issues) {
