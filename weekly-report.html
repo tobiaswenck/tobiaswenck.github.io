@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Weekly Report</title>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- GSAP -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Geist Mono from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              'geist': ['"Geist Mono"', 'monospace'],
+            },
+            colors: {
+              'dash-bg': '#0b0b0d',
+              'surface': '#141416',
+              'surface-hover': '#19191c',
+              'border': 'rgba(255, 255, 255, 0.06)',
+              'border-hover': 'rgba(255, 255, 255, 0.1)',
+              'muted': '#505058',
+              'muted-light': '#7e7e86',
+              'text-primary': '#ededef',
+              'text-secondary': '#a0a0a8',
+            },
+          },
+        },
+      }
+    </script>
+
+    <style>
+      body { scrollbar-width: none; }
+      body::-webkit-scrollbar { display: none; }
+
+      .dash-card {
+        --card-color: #fff;
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+        will-change: transform;
+      }
+
+      .card-glow {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse 80% 55% at 50% 0%, color-mix(in srgb, var(--card-color) 14%, transparent), transparent);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .card-accent {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0%;
+        height: 1.5px;
+        background: linear-gradient(90deg, transparent, var(--card-color), transparent);
+        opacity: 0;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .gs-hidden { opacity: 0; }
+
+      /* Login overlay */
+      #login-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: #0b0b0d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #login-overlay.hidden { display: none; }
+      #login-box {
+        width: 100%;
+        max-width: 340px;
+        padding: 0 24px;
+      }
+      #login-box input {
+        background: #0e0e10;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: border-color 0.3s ease;
+      }
+      #login-box input:focus {
+        border-color: rgba(255, 255, 255, 0.12);
+      }
+      #login-btn {
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: border-color 0.3s ease, background 0.3s ease;
+      }
+      #login-btn:hover {
+        background: #19191c;
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+      #login-error {
+        color: #F26F60;
+        min-height: 18px;
+      }
+
+      /* Issue rows */
+      .linear-issue-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        transition: background 0.2s ease;
+        text-decoration: none;
+      }
+      .linear-issue-row:hover { background: #19191c; }
+      .linear-issue-row:last-child { border-bottom: none; }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      /* Terminal boot */
+      .wk-terminal {
+        padding: 24px;
+        min-height: 200px;
+        position: relative;
+        overflow: hidden;
+      }
+      .wk-line {
+        font-size: 12px;
+        line-height: 1.8;
+        color: #505058;
+        white-space: pre;
+        opacity: 0;
+      }
+      .wk-line.typed { opacity: 1; }
+      .wk-line .wk-prompt { color: #5E6AD2; }
+      .wk-line .wk-done-tag {
+        color: #34D399;
+        opacity: 0;
+        margin-left: 8px;
+      }
+      .wk-line .wk-done-tag.visible { opacity: 1; }
+      .wk-cursor {
+        display: inline-block;
+        width: 7px;
+        height: 14px;
+        background: #5E6AD2;
+        vertical-align: text-bottom;
+        animation: wk-blink 0.6s step-end infinite;
+      }
+      @keyframes wk-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+
+      .wk-scanline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(94, 106, 210, 0.5), transparent);
+        pointer-events: none;
+        z-index: 3;
+        opacity: 0;
+        top: 0;
+      }
+
+      /* Border-trace SVG */
+      .panel-border-trace {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 2;
+      }
+      .panel-border-trace rect {
+        fill: none;
+        stroke: #5E6AD2;
+        stroke-width: 1.5;
+        rx: 12;
+        ry: 12;
+      }
+
+      /* Back link */
+      .back-link {
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: border-color 0.3s ease, background 0.3s ease;
+      }
+      .back-link:hover {
+        background: #19191c;
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+
+      /* Stat card value */
+      .stat-value {
+        font-size: 28px;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Chart.js overrides */
+      canvas { border-radius: 8px; }
+
+      /* Doughnut center label */
+      .doughnut-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+
+  <body class="font-geist bg-dash-bg text-text-primary min-h-screen overflow-x-hidden">
+
+    <!-- Login overlay -->
+    <div id="login-overlay">
+      <div id="login-box">
+        <h1 class="text-2xl font-semibold tracking-tight text-text-primary mb-8 text-center">Dashboard</h1>
+        <form id="login-form" class="flex flex-col gap-3">
+          <input
+            id="login-password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Password"
+            class="h-10 rounded-lg px-4 text-[13px] text-text-primary placeholder-muted focus:outline-none w-full"
+          >
+          <button
+            type="submit"
+            id="login-btn"
+            class="h-10 rounded-lg text-[13px] text-muted-light cursor-pointer w-full"
+          >
+            Sign in
+          </button>
+          <p id="login-error" class="text-[11px] text-center">&nbsp;</p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <main class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 lg:py-20 mx-auto" style="max-width: 1060px; display: none;">
+
+      <!-- Header -->
+      <header class="flex items-start justify-between mb-10 gs-hidden" id="header">
+        <div>
+          <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight text-text-primary">Weekly Report</h1>
+          <p class="text-muted text-[11px] tracking-wide mt-2" id="date-range"></p>
+        </div>
+        <a href="dashboard-alternative.html" class="back-link h-8 px-3 rounded-lg flex items-center gap-2 text-[11px] text-muted-light tracking-wide no-underline">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Dashboard
+        </a>
+      </header>
+
+      <!-- Terminal boot card -->
+      <div id="boot-card" class="dash-card p-0 mb-8 gs-hidden" style="--card-color: #5E6AD2">
+        <div class="card-glow"></div>
+        <div class="card-accent"></div>
+        <div class="wk-scanline" id="wk-scanline"></div>
+        <svg class="panel-border-trace" id="wk-border-trace" preserveAspectRatio="none" width="100%" height="100%">
+          <rect id="wk-border-rect" x="0.75" y="0.75" width="99%" height="99%"/>
+        </svg>
+        <div class="wk-terminal" id="wk-terminal">
+          <div class="wk-line" id="wk-line-0"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-cursor"></span></div>
+          <div class="wk-line" id="wk-line-1"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-done-tag">[done]</span></div>
+          <div class="wk-line" id="wk-line-2"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-done-tag">[done]</span></div>
+          <div class="wk-line" id="wk-line-3"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-done-tag">[done]</span></div>
+          <div class="wk-line" id="wk-line-4"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-done-tag">[done]</span></div>
+        </div>
+      </div>
+
+      <!-- Report content (hidden until boot finishes) -->
+      <div id="report-content" style="opacity: 0;">
+
+        <!-- Error state -->
+        <div id="report-error" class="hidden text-center py-12">
+          <p class="text-muted-light text-[13px]" id="report-error-msg"></p>
+        </div>
+
+        <!-- Data state -->
+        <div id="report-data" class="hidden">
+
+          <!-- Summary stats -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6" id="stats-row">
+            <div class="dash-card p-5" style="--card-color: #5E6AD2">
+              <div class="card-glow"></div>
+              <p class="text-muted text-[10px] tracking-wide uppercase mb-3">Total Completed</p>
+              <p class="stat-value text-text-primary" id="stat-total">0</p>
+            </div>
+            <div class="dash-card p-5" style="--card-color: #5E6AD2">
+              <div class="card-glow"></div>
+              <p class="text-muted text-[10px] tracking-wide uppercase mb-3">Linear</p>
+              <p class="stat-value" style="color: #5E6AD2;" id="stat-linear">0</p>
+            </div>
+            <div class="dash-card p-5" style="--card-color: #E20F86">
+              <div class="card-glow"></div>
+              <p class="text-muted text-[10px] tracking-wide uppercase mb-3">YouTrack</p>
+              <p class="stat-value" style="color: #E20F86;" id="stat-youtrack">0</p>
+            </div>
+            <div class="dash-card p-5" style="--card-color: #34D399">
+              <div class="card-glow"></div>
+              <p class="text-muted text-[10px] tracking-wide uppercase mb-3">Busiest Day</p>
+              <p class="stat-value text-text-primary text-[20px]" id="stat-busiest">—</p>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6" id="charts-row">
+            <div class="dash-card p-5 sm:col-span-2" style="--card-color: #5E6AD2">
+              <p class="text-muted text-[10px] tracking-wide uppercase mb-4">Daily Activity</p>
+              <div style="position: relative; height: 180px;">
+                <canvas id="chart-activity"></canvas>
+              </div>
+            </div>
+            <div class="dash-card p-5" style="--card-color: #E20F86">
+              <p class="text-muted text-[10px] tracking-wide uppercase mb-4">Source Breakdown</p>
+              <div style="position: relative; height: 180px;">
+                <canvas id="chart-doughnut"></canvas>
+                <div class="doughnut-center">
+                  <span class="stat-value text-text-primary text-[22px]" id="doughnut-total">0</span>
+                  <span class="text-muted text-[9px] tracking-wide uppercase mt-1">issues</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Linear section -->
+          <div class="wk-section mb-6" id="section-linear">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-1 h-3 rounded-full" style="background: #5E6AD2;"></div>
+              <span class="text-muted text-[11px] tracking-wide uppercase">Linear — Completed</span>
+              <span class="text-muted text-[11px] tracking-wide" id="linear-count"></span>
+            </div>
+            <div id="linear-list"></div>
+            <div id="linear-empty" class="hidden text-muted text-[12px] py-2">No completed issues</div>
+          </div>
+
+          <!-- YouTrack section -->
+          <div class="wk-section mb-6" id="section-youtrack">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-1 h-3 rounded-full" style="background: #E20F86;"></div>
+              <span class="text-muted text-[11px] tracking-wide uppercase">YouTrack — Resolved</span>
+              <span class="text-muted text-[11px] tracking-wide" id="youtrack-count"></span>
+            </div>
+            <div id="youtrack-list"></div>
+            <div id="youtrack-empty" class="hidden text-muted text-[12px] py-2">No resolved tickets</div>
+          </div>
+
+          <!-- Notes section -->
+          <div class="wk-section mb-6" id="section-notes">
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-1 h-3 rounded-full" style="background: #505058;"></div>
+              <span class="text-muted text-[11px] tracking-wide uppercase">Notes</span>
+            </div>
+            <textarea
+              id="notes-textarea"
+              rows="4"
+              placeholder=""
+              class="w-full text-[12px] text-text-secondary placeholder-muted leading-relaxed rounded-lg px-4 py-3 resize-y focus:outline-none focus:border-border-hover"
+              style="background: #0e0e10; border: 1px solid rgba(255, 255, 255, 0.06); transition: border-color 0.3s ease; min-height: 80px;"
+            ></textarea>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+
+    <script>
+      // ── Dev mode ──
+      const IS_LOCAL = location.protocol === 'file:'
+        || location.hostname === 'localhost'
+        || location.hostname === '127.0.0.1';
+
+      const WORKER_URL = 'https://linear-proxy.tobiaswenck.workers.dev';
+      const TOKEN_KEY = 'dash_token';
+
+      // ── Token helpers ──
+      function getToken() { return localStorage.getItem(TOKEN_KEY); }
+      function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+      function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+      function decodePayload(token) {
+        try {
+          const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          return JSON.parse(atob(base64));
+        } catch { return null; }
+      }
+
+      function isTokenValid() {
+        const token = getToken();
+        if (!token) return false;
+        const payload = decodePayload(token);
+        if (!payload || !payload.exp) return false;
+        return payload.exp > Math.floor(Date.now() / 1000);
+      }
+
+      function showApp() {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.querySelector('main').style.display = '';
+      }
+
+      function showLogin(msg) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+        document.querySelector('main').style.display = 'none';
+        if (msg) document.getElementById('login-error').textContent = msg;
+      }
+
+      function logout() {
+        clearToken();
+        showLogin();
+        document.getElementById('login-password').value = '';
+        document.getElementById('login-error').innerHTML = '&nbsp;';
+      }
+
+      // ── Login flow ──
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('login-password').value;
+        const errEl = document.getElementById('login-error');
+        const btn = document.getElementById('login-btn');
+
+        if (!pw) { errEl.textContent = 'Enter a password'; return; }
+
+        btn.textContent = '...';
+        btn.disabled = true;
+        errEl.innerHTML = '&nbsp;';
+
+        try {
+          const res = await fetch(`${WORKER_URL}/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw }),
+          });
+          const json = await res.json().catch(() => null);
+
+          if (!res.ok) {
+            errEl.textContent = json?.error || 'Authentication failed';
+            return;
+          }
+
+          setToken(json.token);
+          showApp();
+          initReport();
+        } catch (err) {
+          errEl.textContent = 'Network error';
+        } finally {
+          btn.textContent = 'Sign in';
+          btn.disabled = false;
+        }
+      });
+
+      // ── Boot check ──
+      if (IS_LOCAL || isTokenValid()) {
+        showApp();
+        initReport();
+      } else if (getToken()) {
+        logout();
+      }
+
+      // ── Shared helpers ──
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function formatDateDE(isoString) {
+        const d = new Date(isoString);
+        return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      }
+
+      function relativeTime(dateStr) {
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 30) return `${days}d ago`;
+        return `${Math.floor(days / 30)}mo ago`;
+      }
+
+      function getYouTrackField(issue, fieldName) {
+        const field = issue.customFields?.find(f => f.name === fieldName);
+        return field?.value || null;
+      }
+
+      // ── API helpers ──
+      async function linearQuery(query) {
+        const token = getToken();
+        const res = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ query }),
+        });
+
+        if (res.status === 401) {
+          clearToken();
+          showLogin('Session expired. Please sign in again.');
+          throw new Error('Unauthorized');
+        }
+
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = json?.errors?.[0]?.message || json?.error || `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+        if (json?.errors) throw new Error(json.errors[0].message);
+        return json.data;
+      }
+
+      async function youtrackQuery(query, top) {
+        const token = getToken();
+        const reqBody = { query };
+        if (top) reqBody.top = top;
+        const res = await fetch(`${WORKER_URL}/youtrack`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(reqBody),
+        });
+
+        if (res.status === 401) {
+          clearToken();
+          showLogin('Session expired. Please sign in again.');
+          throw new Error('Unauthorized');
+        }
+
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = json?.error || `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+        return json;
+      }
+
+      // ── Data fetchers ──
+      async function fetchWeeklyLinearIssues() {
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const query = `{
+          viewer {
+            assignedIssues(
+              first: 50
+              orderBy: updatedAt
+              filter: {
+                state: { type: { eq: "completed" } }
+                completedAt: { gte: "${weekAgo}" }
+              }
+            ) {
+              nodes {
+                identifier
+                title
+                completedAt
+                state { name color }
+                url
+              }
+            }
+          }
+        }`;
+        const data = await linearQuery(query);
+        return data.viewer.assignedIssues.nodes;
+      }
+
+      async function fetchWeeklyYouTrackIssues() {
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const y = weekAgo.getFullYear();
+        const m = String(weekAgo.getMonth() + 1).padStart(2, '0');
+        const d = String(weekAgo.getDate()).padStart(2, '0');
+        return await youtrackQuery(`#Resolved Bearbeiter: tobias.wenck resolved date: ${y}-${m}-${d} .. Today project: IT, {Rail Network Support}`, 50);
+      }
+
+      // ── Renderers ──
+      function renderLinearIssues(issues) {
+        const container = document.getElementById('linear-list');
+        const empty = document.getElementById('linear-empty');
+        const count = document.getElementById('linear-count');
+        count.textContent = `(${issues.length})`;
+
+        if (!issues.length) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        empty.classList.add('hidden');
+        container.innerHTML = '<div class="dash-card p-0 overflow-hidden" style="--card-color: #5E6AD2">' +
+          issues.map(issue => `
+            <a href="${escapeHtml(issue.url)}" target="_blank" rel="noopener" class="linear-issue-row">
+              <span class="status-dot" style="background: ${escapeHtml(issue.state.color)};"></span>
+              <span class="text-muted text-[11px] flex-shrink-0">${escapeHtml(issue.identifier)}</span>
+              <span class="text-text-secondary text-[12px] truncate flex-1">${escapeHtml(issue.title)}</span>
+              ${issue.completedAt ? `<span class="text-muted text-[10px] flex-shrink-0 tracking-wide">${relativeTime(issue.completedAt)}</span>` : ''}
+            </a>
+          `).join('') + '</div>';
+      }
+
+      function renderYouTrackIssues(issues) {
+        const container = document.getElementById('youtrack-list');
+        const empty = document.getElementById('youtrack-empty');
+        const count = document.getElementById('youtrack-count');
+        count.textContent = `(${issues.length})`;
+
+        if (!issues.length) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        empty.classList.add('hidden');
+        container.innerHTML = '<div class="dash-card p-0 overflow-hidden" style="--card-color: #E20F86">' +
+          issues.map(issue => {
+            const state = getYouTrackField(issue, 'State');
+            const stateColor = state?.color?.background || '#505058';
+            const stateName = state?.name || '';
+            const id = escapeHtml(issue.idReadable || '');
+            const title = escapeHtml(issue.summary || '');
+            const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
+            const age = issue.resolved ? relativeTime(new Date(issue.resolved).toISOString()) : '';
+            return `
+              <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
+                <span class="status-dot" style="background: ${escapeHtml(stateColor)};" title="${escapeHtml(stateName)}"></span>
+                <span class="text-muted text-[11px] flex-shrink-0">${id}</span>
+                <span class="text-text-secondary text-[12px] truncate flex-1">${title}</span>
+                ${age ? `<span class="text-muted text-[10px] flex-shrink-0 tracking-wide">${age}</span>` : ''}
+              </a>
+            `;
+          }).join('') + '</div>';
+      }
+
+      // ── Chart.js global config ──
+      Chart.defaults.color = '#505058';
+      Chart.defaults.font.family = '"Geist Mono", monospace';
+      Chart.defaults.font.size = 10;
+
+      // ── Compute daily breakdown for charts ──
+      function computeDailyStats(linearIssues, youtrackIssues) {
+        const days = [];
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const now = new Date();
+
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(now);
+          d.setDate(d.getDate() - i);
+          const key = d.toISOString().slice(0, 10);
+          days.push({ key, label: dayNames[d.getDay()], linear: 0, youtrack: 0 });
+        }
+
+        linearIssues.forEach(issue => {
+          if (!issue.completedAt) return;
+          const key = new Date(issue.completedAt).toISOString().slice(0, 10);
+          const day = days.find(d => d.key === key);
+          if (day) day.linear++;
+        });
+
+        youtrackIssues.forEach(issue => {
+          if (!issue.resolved) return;
+          const key = new Date(issue.resolved).toISOString().slice(0, 10);
+          const day = days.find(d => d.key === key);
+          if (day) day.youtrack++;
+        });
+
+        return days;
+      }
+
+      let activityChart = null;
+      let doughnutChart = null;
+
+      function renderCharts(dailyStats, linearTotal, youtrackTotal) {
+        const labels = dailyStats.map(d => d.label);
+        const linearData = dailyStats.map(d => d.linear);
+        const youtrackData = dailyStats.map(d => d.youtrack);
+
+        const tooltipConfig = {
+          backgroundColor: '#141416',
+          borderColor: 'rgba(255, 255, 255, 0.06)',
+          borderWidth: 1,
+          titleColor: '#ededef',
+          bodyColor: '#a0a0a8',
+          padding: 10,
+          cornerRadius: 8,
+          titleFont: { family: '"Geist Mono", monospace', size: 11 },
+          bodyFont: { family: '"Geist Mono", monospace', size: 10 },
+          displayColors: true,
+          boxWidth: 8,
+          boxHeight: 8,
+          boxPadding: 4,
+        };
+
+        // Bar chart
+        const activityCtx = document.getElementById('chart-activity').getContext('2d');
+        activityChart = new Chart(activityCtx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Linear',
+                data: linearData,
+                backgroundColor: '#5E6AD2',
+                borderRadius: 4,
+                borderSkipped: false,
+              },
+              {
+                label: 'YouTrack',
+                data: youtrackData,
+                backgroundColor: '#E20F86',
+                borderRadius: 4,
+                borderSkipped: false,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 800, easing: 'easeOutQuart' },
+            plugins: {
+              legend: { display: false },
+              tooltip: tooltipConfig,
+            },
+            scales: {
+              x: {
+                stacked: true,
+                grid: { display: false },
+                border: { display: false },
+                ticks: { color: '#505058', font: { size: 10 } },
+              },
+              y: {
+                stacked: true,
+                grid: { color: 'rgba(255, 255, 255, 0.03)' },
+                border: { display: false },
+                ticks: {
+                  color: '#505058',
+                  font: { size: 10 },
+                  stepSize: 1,
+                  callback: v => Number.isInteger(v) ? v : '',
+                },
+              },
+            },
+          },
+        });
+
+        // Doughnut chart
+        const total = linearTotal + youtrackTotal;
+        const doughnutCtx = document.getElementById('chart-doughnut').getContext('2d');
+        doughnutChart = new Chart(doughnutCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Linear', 'YouTrack'],
+            datasets: [{
+              data: total > 0 ? [linearTotal, youtrackTotal] : [1, 1],
+              backgroundColor: total > 0 ? ['#5E6AD2', '#E20F86'] : ['rgba(255,255,255,0.04)', 'rgba(255,255,255,0.04)'],
+              borderWidth: 0,
+              spacing: 2,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            animation: { duration: 800, easing: 'easeOutQuart' },
+            plugins: {
+              legend: { display: false },
+              tooltip: total > 0 ? tooltipConfig : { enabled: false },
+            },
+          },
+        });
+
+        document.getElementById('doughnut-total').textContent = total;
+      }
+
+      // ── Counter tick-up ──
+      function animateCounter(el, target) {
+        const obj = { val: 0 };
+        gsap.to(obj, {
+          val: target,
+          duration: 0.8,
+          ease: 'power2.out',
+          snap: { val: 1 },
+          onUpdate: () => { el.textContent = Math.round(obj.val); }
+        });
+      }
+
+      // ── Terminal typing ──
+      function typeTerminalLine(lineEl, text, speed = 30) {
+        return new Promise(resolve => {
+          const textSpan = lineEl.querySelector('.wk-text');
+          lineEl.classList.add('typed');
+          textSpan.textContent = '';
+          let i = 0;
+          const interval = setInterval(() => {
+            textSpan.textContent += text[i];
+            i++;
+            if (i >= text.length) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, speed);
+        });
+      }
+
+      function showDoneTag(lineEl) {
+        const tag = lineEl.querySelector('.wk-done-tag');
+        if (tag) {
+          tag.classList.add('visible');
+          gsap.fromTo(tag, { scale: 1.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(2)' });
+        }
+      }
+
+      // ── Notes persistence ──
+      const notesEl = document.getElementById('notes-textarea');
+      notesEl.value = sessionStorage.getItem('weekly_notes') || '';
+      notesEl.addEventListener('input', () => sessionStorage.setItem('weekly_notes', notesEl.value));
+
+      // ── Show state helper ──
+      function showReportState(state) {
+        document.getElementById('report-error').classList.toggle('hidden', state !== 'error');
+        document.getElementById('report-data').classList.toggle('hidden', state !== 'data');
+      }
+
+      // ── Main init ──
+      let reportInitialized = false;
+
+      async function initReport() {
+        if (reportInitialized) return;
+        reportInitialized = true;
+
+        const now = new Date();
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        document.getElementById('date-range').textContent =
+          `${formatDateDE(weekAgo.toISOString())} – ${formatDateDE(now.toISOString())}`;
+
+        // Phase 1: Animate header + boot card in
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.fromTo('#header', { opacity: 0, y: -8 }, { opacity: 1, y: 0, duration: 0.6 });
+        tl.fromTo('#boot-card', { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5 }, '-=0.3');
+
+        // Border trace animation
+        const bootCard = document.getElementById('boot-card');
+        const borderRect = document.getElementById('wk-border-rect');
+        if (borderRect) {
+          const perimeter = (bootCard.offsetWidth + bootCard.offsetHeight) * 2;
+          gsap.set(borderRect, { strokeDasharray: perimeter, strokeDashoffset: perimeter });
+          tl.to(borderRect, { strokeDashoffset: 0, duration: 1.2, ease: 'power2.inOut' }, 0.1);
+          tl.to(borderRect, { opacity: 0, duration: 0.4 }, 1.2);
+        }
+
+        const accentLine = bootCard.querySelector('.card-accent');
+        if (accentLine) tl.to(accentLine, { width: '60%', opacity: 1, duration: 0.6 }, 0.2);
+        const glowEl = bootCard.querySelector('.card-glow');
+        if (glowEl) {
+          tl.to(glowEl, { opacity: 1, duration: 0.4 }, 0.2);
+          tl.to(glowEl, { opacity: 0, duration: 0.6 }, 1.6);
+        }
+
+        // Scanline
+        const scanline = document.getElementById('wk-scanline');
+        tl.to(scanline, { opacity: 0.8, duration: 0.1 }, 0.4);
+        tl.to(scanline, { top: '100%', duration: 2.0, ease: 'power1.inOut' }, 0.5);
+        tl.to(scanline, { opacity: 0, duration: 0.3 }, 2.3);
+
+        // Phase 2: terminal typing + data fetch in parallel
+        const terminalLines = [
+          { id: 'wk-line-0', text: 'Initializing report...', done: false },
+          { id: 'wk-line-1', text: 'Connecting to Linear...', done: true },
+          { id: 'wk-line-2', text: 'Fetching completed issues...', done: true },
+          { id: 'wk-line-3', text: 'Querying YouTrack...', done: true },
+          { id: 'wk-line-4', text: 'Compiling results...', done: true },
+        ];
+
+        const dataPromise = fetchAllData();
+
+        const typingPromise = (async () => {
+          await new Promise(r => setTimeout(r, 500));
+          for (const line of terminalLines) {
+            const el = document.getElementById(line.id);
+            await typeTerminalLine(el, line.text, 25);
+            if (line.done) showDoneTag(el);
+            await new Promise(r => setTimeout(r, 150));
+          }
+        })();
+
+        const result = await Promise.all([dataPromise, typingPromise]);
+        const { linearIssues, youtrackIssues, hasError } = result[0];
+
+        // Phase 3: crossfade boot card -> report content
+        document.querySelectorAll('.wk-cursor').forEach(c => { c.style.display = 'none'; });
+
+        const terminal = document.getElementById('wk-terminal');
+        await gsap.to(terminal, { opacity: 0, duration: 0.3, ease: 'power2.inOut' }).then();
+        await gsap.to('#boot-card', { height: 0, opacity: 0, marginBottom: 0, padding: 0, borderWidth: 0, duration: 0.4, ease: 'power2.inOut' }).then();
+        document.getElementById('boot-card').style.display = 'none';
+
+        // Show report
+        gsap.set('#report-content', { opacity: 1 });
+
+        if (hasError && linearIssues.length === 0 && youtrackIssues.length === 0) {
+          return;
+        }
+
+        // Render data
+        renderLinearIssues(linearIssues);
+        renderYouTrackIssues(youtrackIssues);
+        showReportState('data');
+
+        // Compute stats
+        const totalCount = linearIssues.length + youtrackIssues.length;
+        const dailyStats = computeDailyStats(linearIssues, youtrackIssues);
+
+        let busiestDay = '—';
+        if (totalCount > 0) {
+          const best = dailyStats.reduce((a, b) => (a.linear + a.youtrack) >= (b.linear + b.youtrack) ? a : b);
+          if (best.linear + best.youtrack > 0) busiestDay = best.label;
+        }
+
+        // Render charts (initially hidden, will animate when revealed)
+        renderCharts(dailyStats, linearIssues.length, youtrackIssues.length);
+
+        // Phase 4: stagger everything in
+        const sections = ['#stats-row', '#charts-row', '#section-linear', '#section-youtrack', '#section-notes'];
+        sections.forEach(s => gsap.set(s, { opacity: 0, y: 14 }));
+
+        const rows = document.querySelectorAll('#linear-list .linear-issue-row, #youtrack-list .linear-issue-row');
+        gsap.set(rows, { opacity: 0, x: -6 });
+
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+        const revealTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+        // Stats row
+        revealTl.to('#stats-row', { opacity: 1, y: 0, duration: 0.5 }, 0);
+
+        // Charts row
+        revealTl.to('#charts-row', { opacity: 1, y: 0, duration: 0.5 }, 0.1);
+
+        // Issue sections
+        revealTl.to('#section-linear', { opacity: 1, y: 0, duration: 0.45 }, 0.2);
+        revealTl.to('#section-youtrack', { opacity: 1, y: 0, duration: 0.45 }, 0.3);
+        revealTl.to('#section-notes', { opacity: 1, y: 0, duration: 0.45 }, 0.4);
+
+        // Issue rows cascade
+        if (rows.length) {
+          revealTl.to(rows, { opacity: 1, x: 0, duration: 0.25, stagger: 0.03, ease: 'power2.out' }, 0.35);
+        }
+
+        // Tick up stat counters
+        revealTl.add(() => {
+          animateCounter(document.getElementById('stat-total'), totalCount);
+          animateCounter(document.getElementById('stat-linear'), linearIssues.length);
+          animateCounter(document.getElementById('stat-youtrack'), youtrackIssues.length);
+          document.getElementById('stat-busiest').textContent = busiestDay;
+        }, 0.15);
+
+        // Glow pulse on stat cards
+        document.querySelectorAll('#stats-row .card-glow').forEach((glow, i) => {
+          revealTl.to(glow, { opacity: 1, duration: 0.3 }, 0.1 + i * 0.05);
+          revealTl.to(glow, { opacity: 0, duration: 0.5 }, 0.5 + i * 0.05);
+        });
+      }
+
+      async function fetchAllData() {
+        const errors = [];
+        const [linearIssues, youtrackIssues] = await Promise.all([
+          fetchWeeklyLinearIssues().catch(err => { errors.push('Linear: ' + err.message); return []; }),
+          fetchWeeklyYouTrackIssues().catch(err => { errors.push('YouTrack: ' + err.message); return []; }),
+        ]);
+
+        if (errors.length === 2) {
+          if (IS_LOCAL) {
+            document.getElementById('report-error-msg').textContent =
+              'Dev mode — APIs unavailable (CORS). Push to live domain to test.';
+            showReportState('error');
+            return { linearIssues: [], youtrackIssues: [], hasError: true };
+          }
+          document.getElementById('report-error-msg').textContent = errors.join(' | ');
+          showReportState('error');
+          return { linearIssues: [], youtrackIssues: [], hasError: true };
+        }
+
+        return { linearIssues, youtrackIssues, hasError: false };
+      }
+    </script>
+  </body>
+</html>
