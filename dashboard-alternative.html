@@ -1929,9 +1929,11 @@
         // Step 2: swap — hide terminal, prep report content off-screen
         terminal.style.display = 'none';
 
-        // Pre-set sections to invisible before making container visible
+        // Pre-set everything invisible before making container visible
         const sections = document.querySelectorAll('.wk-section');
+        const rows = document.querySelectorAll('#weekly-linear-list .linear-issue-row, #weekly-youtrack-list .linear-issue-row');
         gsap.set(sections, { opacity: 0, y: 14 });
+        gsap.set(rows, { opacity: 0, x: -6 });
         gsap.set(reportContent, { opacity: 1 });
 
         // Let browser do one layout pass
@@ -1939,7 +1941,7 @@
 
         if (!weeklyOpen) return;
 
-        // Step 3: stagger sections in
+        // Step 3: stagger section headers in (rows stay hidden)
         await gsap.to(sections, {
           opacity: 1,
           y: 0,
@@ -1948,13 +1950,15 @@
           ease: 'power3.out',
         }).then();
 
-        // Step 4: cascade issue rows (they're already in the DOM from fetchWeeklyData)
-        const rows = document.querySelectorAll('#weekly-linear-list .linear-issue-row, #weekly-youtrack-list .linear-issue-row');
+        // Step 4: cascade issue rows
         if (rows.length) {
-          gsap.fromTo(rows,
-            { opacity: 0, x: -6 },
-            { opacity: 1, x: 0, duration: 0.25, stagger: 0.03, ease: 'power2.out' }
-          );
+          await gsap.to(rows, {
+            opacity: 1,
+            x: 0,
+            duration: 0.25,
+            stagger: 0.03,
+            ease: 'power2.out',
+          }).then();
         }
 
         // Step 5: tick up counters
