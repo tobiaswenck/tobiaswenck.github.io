@@ -1680,12 +1680,17 @@
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         document.getElementById('weekly-date-range').textContent =
           `${formatDateDE(weekAgo.toISOString())} – ${formatDateDE(now.toISOString())}`;
+        document.getElementById('weekly-other-notes').value = sessionStorage.getItem('weekly_notes') || '';
         fetchWeeklyData();
       }
 
       function closeWeeklyModal() {
         document.getElementById('weekly-modal-overlay').classList.remove('active');
       }
+
+      // sessionStorage persistence for notes textarea
+      const weeklyNotes = document.getElementById('weekly-other-notes');
+      weeklyNotes.addEventListener('input', () => sessionStorage.setItem('weekly_notes', weeklyNotes.value));
 
       document.getElementById('weekly-btn').addEventListener('click', openWeeklyModal);
       document.getElementById('weekly-close-btn').addEventListener('click', closeWeeklyModal);
