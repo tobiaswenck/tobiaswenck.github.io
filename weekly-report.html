@@ -640,7 +640,8 @@
             const id = escapeHtml(issue.idReadable || '');
             const title = escapeHtml(issue.summary || '');
             const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
-            const age = issue.resolved ? relativeTime(new Date(issue.resolved).toISOString()) : '';
+            const resolvedDate = issue.resolved ? new Date(issue.resolved) : null;
+            const age = resolvedDate && !isNaN(resolvedDate) ? relativeTime(resolvedDate.toISOString()) : '';
             return `
               <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
                 <span class="status-dot" style="background: ${escapeHtml(stateColor)};" title="${escapeHtml(stateName)}"></span>
