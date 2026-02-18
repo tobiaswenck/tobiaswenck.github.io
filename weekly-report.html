@@ -505,6 +505,12 @@
         return field?.value || null;
       }
 
+      function getYouTrackResolvedTs(issue) {
+        if (issue.resolved != null) return issue.resolved;
+        if (issue.created != null) return issue.created;
+        return null;
+      }
+
       // ── API helpers ──
       async function linearQuery(query) {
         const token = getToken();
@@ -634,6 +640,11 @@
         const count = document.getElementById('youtrack-count');
         count.textContent = `(${issues.length})`;
 
+        if (issues.length) {
+          console.log('[weekly-report] YouTrack sample issue keys:', Object.keys(issues[0]));
+          console.log('[weekly-report] YouTrack sample issue:', JSON.stringify(issues[0], null, 2));
+        }
+
         if (!issues.length) {
           container.innerHTML = '';
           empty.classList.remove('hidden');
@@ -649,7 +660,8 @@
             const id = escapeHtml(issue.idReadable || '');
             const title = escapeHtml(issue.summary || '');
             const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
-            const resolvedDate = issue.resolved != null ? new Date(issue.resolved) : null;
+            const ts = getYouTrackResolvedTs(issue);
+            const resolvedDate = ts != null ? new Date(ts) : null;
             const age = resolvedDate && !isNaN(resolvedDate.getTime()) ? relativeTime(resolvedDate.toISOString()) : '';
             return `
               <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
@@ -693,7 +705,7 @@
         });
 
         youtrackIssues.forEach(issue => {
-          const ts = issue.resolved;
+          const ts = getYouTrackResolvedTs(issue);
           if (ts == null) return;
           const key = toLocalDateKey(ts);
           const day = days.find(d => d.key === key);
