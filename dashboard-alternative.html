@@ -318,37 +318,116 @@
       }
 
 
-      /* Weekly review modal */
-      #weekly-modal-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 50;
-        background: rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(4px);
+      /* Dashboard wrapper — allows main + weekly panel side-by-side */
+      #dashboard-wrapper {
         display: flex;
-        align-items: center;
         justify-content: center;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.25s ease;
-      }
-      #weekly-modal-overlay.active {
-        opacity: 1;
-        pointer-events: auto;
-      }
-      #weekly-modal {
+        align-items: flex-start;
+        gap: 24px;
         width: 100%;
-        max-width: 640px;
-        max-height: 80vh;
+        min-height: 100vh;
+        will-change: transform;
+      }
+
+      /* Weekly side-panel */
+      #weekly-panel {
+        width: 420px;
+        min-width: 420px;
+        max-height: 100vh;
         overflow-y: auto;
         scrollbar-width: none;
-        margin: 0 24px;
-        transform: translateY(8px);
-        transition: transform 0.25s ease;
+        position: sticky;
+        top: 0;
+        opacity: 0;
+        pointer-events: none;
+        padding: 64px 0 64px 0;
+        display: none;
       }
-      #weekly-modal::-webkit-scrollbar { display: none; }
-      #weekly-modal-overlay.active #weekly-modal {
-        transform: translateY(0);
+      #weekly-panel::-webkit-scrollbar { display: none; }
+      #weekly-panel.active {
+        display: block;
+        pointer-events: auto;
+      }
+
+      /* Border-trace SVG overlay */
+      #weekly-panel .panel-border-trace {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 2;
+      }
+      #weekly-panel .panel-border-trace rect {
+        fill: none;
+        stroke: #5E6AD2;
+        stroke-width: 1.5;
+        rx: 12;
+        ry: 12;
+      }
+
+      /* Terminal boot area */
+      .wk-terminal {
+        padding: 24px;
+        min-height: 200px;
+        position: relative;
+        overflow: hidden;
+      }
+      .wk-line {
+        font-size: 12px;
+        line-height: 1.8;
+        color: #505058;
+        white-space: pre;
+        opacity: 0;
+      }
+      .wk-line.typed {
+        opacity: 1;
+      }
+      .wk-line .wk-prompt {
+        color: #5E6AD2;
+      }
+      .wk-line .wk-done-tag {
+        color: #34D399;
+        opacity: 0;
+        margin-left: 8px;
+      }
+      .wk-line .wk-done-tag.visible {
+        opacity: 1;
+      }
+      .wk-cursor {
+        display: inline-block;
+        width: 7px;
+        height: 14px;
+        background: #5E6AD2;
+        vertical-align: text-bottom;
+        animation: wk-blink 0.6s step-end infinite;
+      }
+
+      @keyframes wk-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+
+      /* Scanline sweep */
+      .wk-scanline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(94, 106, 210, 0.5), transparent);
+        pointer-events: none;
+        z-index: 3;
+        opacity: 0;
+        top: 0;
+      }
+
+      /* Panel content (report data) */
+      #weekly-report-content {
+        opacity: 0;
+      }
+
+      /* Panel glow effect on the inner card */
+      #weekly-panel-card {
+        position: relative;
+        overflow: hidden;
       }
 
     </style>
@@ -380,8 +459,11 @@
       </div>
     </div>
 
+    <!-- Dashboard wrapper (flex container for main + weekly panel) -->
+    <div id="dashboard-wrapper" style="display: none;">
+
     <!-- Main content (hidden until authenticated) -->
-    <main class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 lg:py-20 mx-auto" style="max-width: 1060px; display: none;">
+    <main id="main-content" class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 lg:py-20" style="max-width: 1060px; flex-shrink: 0; width: 100%;">
 
       <!-- Header -->
       <header class="flex items-start justify-between mb-14 gs-hidden" id="header">
@@ -800,75 +882,95 @@
 
     </main>
 
-    <!-- Weekly Review Modal -->
-    <div id="weekly-modal-overlay">
-      <div id="weekly-modal" class="dash-card p-0" style="--card-color: #5E6AD2">
-        <div class="sticky top-0 z-10 px-6 pt-6 pb-4" style="background: #141416; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-text-primary font-medium text-[15px]">Weekly Review</h2>
-              <p class="text-muted text-[11px] tracking-wide mt-1" id="weekly-date-range"></p>
+    <!-- Weekly Review Side Panel -->
+    <aside id="weekly-panel">
+      <div id="weekly-panel-card" class="dash-card p-0" style="--card-color: #5E6AD2">
+        <!-- Glow + Accent (injected for this card) -->
+        <div class="card-glow"></div>
+        <div class="card-accent"></div>
+        <!-- Scanline -->
+        <div class="wk-scanline" id="wk-scanline"></div>
+
+        <!-- Border-trace SVG -->
+        <svg class="panel-border-trace" id="wk-border-trace" preserveAspectRatio="none" width="100%" height="100%">
+          <rect id="wk-border-rect" x="0.75" y="0.75" width="99%" height="99%"/>
+        </svg>
+
+        <!-- Terminal boot area -->
+        <div class="wk-terminal" id="wk-terminal">
+          <div class="wk-line" id="wk-line-0"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-cursor"></span></div>
+          <div class="wk-line" id="wk-line-1"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-done-tag">[done]</span></div>
+          <div class="wk-line" id="wk-line-2"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-done-tag">[done]</span></div>
+          <div class="wk-line" id="wk-line-3"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-done-tag">[done]</span></div>
+          <div class="wk-line" id="wk-line-4"><span class="wk-prompt">&gt;</span> <span class="wk-text"></span><span class="wk-done-tag">[done]</span></div>
+        </div>
+
+        <!-- Report content (hidden until reveal) -->
+        <div id="weekly-report-content">
+          <!-- Sticky header -->
+          <div class="sticky top-0 z-10 px-6 pt-6 pb-4" style="background: #141416; border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-text-primary font-medium text-[15px]">Weekly Review</h2>
+                <p class="text-muted text-[11px] tracking-wide mt-1" id="weekly-date-range"></p>
+              </div>
+              <button id="weekly-close-btn" class="text-muted-light hover:text-text-primary transition-colors cursor-pointer p-1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
             </div>
-            <button id="weekly-close-btn" class="text-muted-light hover:text-text-primary transition-colors cursor-pointer p-1">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
+          </div>
+
+          <div id="weekly-content" class="p-6">
+            <!-- Error -->
+            <div id="weekly-error" class="hidden text-center py-4">
+              <p class="text-muted-light text-[13px]" id="weekly-error-msg"></p>
+            </div>
+            <!-- Data -->
+            <div id="weekly-data" class="hidden space-y-6">
+              <!-- Linear section -->
+              <div class="wk-section" id="wk-section-linear">
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-1 h-3 rounded-full" style="background: #5E6AD2;"></div>
+                  <span class="text-muted text-[11px] tracking-wide uppercase">Linear — Completed</span>
+                  <span class="text-muted text-[11px] tracking-wide" id="weekly-linear-count"></span>
+                </div>
+                <div id="weekly-linear-list"></div>
+                <div id="weekly-linear-empty" class="hidden text-muted text-[12px] py-2">No completed issues</div>
+              </div>
+              <!-- YouTrack section -->
+              <div class="wk-section" id="wk-section-youtrack">
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-1 h-3 rounded-full" style="background: #E20F86;"></div>
+                  <span class="text-muted text-[11px] tracking-wide uppercase">YouTrack — Resolved</span>
+                  <span class="text-muted text-[11px] tracking-wide" id="weekly-youtrack-count"></span>
+                </div>
+                <div id="weekly-youtrack-list"></div>
+                <div id="weekly-youtrack-empty" class="hidden text-muted text-[12px] py-2">No resolved tickets</div>
+              </div>
+              <!-- Other section -->
+              <div class="wk-section" id="wk-section-notes">
+                <div class="flex items-center gap-2 mb-3">
+                  <div class="w-1 h-3 rounded-full" style="background: #505058;"></div>
+                  <span class="text-muted text-[11px] tracking-wide uppercase">Other</span>
+                </div>
+                <textarea
+                  id="weekly-other-notes"
+                  rows="4"
+                  placeholder=""
+                  class="w-full text-[12px] text-text-secondary placeholder-muted leading-relaxed rounded-lg px-4 py-3 resize-y focus:outline-none focus:border-border-hover"
+                  style="background: #0e0e10; border: 1px solid rgba(255, 255, 255, 0.06); transition: border-color 0.3s ease; min-height: 80px;"
+                ></textarea>
+              </div>
+            </div>
           </div>
         </div>
-        <div id="weekly-content" class="p-6">
-          <!-- Loading -->
-          <div id="weekly-loading" class="hidden space-y-3">
-            <div class="skeleton-line w-1/3"></div>
-            <div class="skeleton-line w-3/4"></div>
-            <div class="skeleton-line w-1/2"></div>
-            <div class="skeleton-line w-2/3"></div>
-            <div class="skeleton-line w-3/5"></div>
-          </div>
-          <!-- Error -->
-          <div id="weekly-error" class="hidden text-center py-4">
-            <p class="text-muted-light text-[13px]" id="weekly-error-msg"></p>
-          </div>
-          <!-- Data -->
-          <div id="weekly-data" class="hidden space-y-6">
-            <!-- Linear section -->
-            <div>
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-1 h-3 rounded-full" style="background: #5E6AD2;"></div>
-                <span class="text-muted text-[11px] tracking-wide uppercase">Linear — Completed</span>
-                <span class="text-muted text-[11px] tracking-wide" id="weekly-linear-count"></span>
-              </div>
-              <div id="weekly-linear-list"></div>
-              <div id="weekly-linear-empty" class="hidden text-muted text-[12px] py-2">No completed issues</div>
-            </div>
-            <!-- YouTrack section -->
-            <div>
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-1 h-3 rounded-full" style="background: #E20F86;"></div>
-                <span class="text-muted text-[11px] tracking-wide uppercase">YouTrack — Resolved</span>
-                <span class="text-muted text-[11px] tracking-wide" id="weekly-youtrack-count"></span>
-              </div>
-              <div id="weekly-youtrack-list"></div>
-              <div id="weekly-youtrack-empty" class="hidden text-muted text-[12px] py-2">No resolved tickets</div>
-            </div>
-            <!-- Other section -->
-            <div>
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-1 h-3 rounded-full" style="background: #505058;"></div>
-                <span class="text-muted text-[11px] tracking-wide uppercase">Other</span>
-              </div>
-              <textarea
-                id="weekly-other-notes"
-                rows="4"
-                placeholder=""
-                class="w-full text-[12px] text-text-secondary placeholder-muted leading-relaxed rounded-lg px-4 py-3 resize-y focus:outline-none focus:border-border-hover"
-                style="background: #0e0e10; border: 1px solid rgba(255, 255, 255, 0.06); transition: border-color 0.3s ease; min-height: 80px;"
-              ></textarea>
-            </div>
-          </div>
-        </div>
+
       </div>
-    </div>
+    </aside>
+
+    </div> <!-- /dashboard-wrapper -->
 
     <script>
       // ─ Dev mode: bypass auth & gracefully handle API when running locally ─
@@ -941,7 +1043,7 @@
 
       function showApp() {
         document.getElementById('login-overlay').classList.add('hidden');
-        document.querySelector('main').style.display = '';
+        document.getElementById('dashboard-wrapper').style.display = '';
         if (IS_LOCAL) {
           document.getElementById('logout-btn').title = 'Dev mode';
           document.getElementById('logout-btn').style.borderColor = 'rgba(242,201,76,0.3)';
@@ -950,7 +1052,7 @@
 
       function showLogin(msg) {
         document.getElementById('login-overlay').classList.remove('hidden');
-        document.querySelector('main').style.display = 'none';
+        document.getElementById('dashboard-wrapper').style.display = 'none';
         if (msg) document.getElementById('login-error').textContent = msg;
       }
 
@@ -1673,42 +1775,239 @@
         }
       }
 
-      // ── Weekly Review Modal ──
-      function openWeeklyModal() {
-        document.getElementById('weekly-modal-overlay').classList.add('active');
+      // ── Weekly Review Panel ──
+      let weeklyPanelOpen = false;
+      let weeklyCloseTl = null;
+
+      // — Terminal typing helper —
+      function typeTerminalLine(lineEl, text, speed = 30) {
+        return new Promise(resolve => {
+          const textSpan = lineEl.querySelector('.wk-text');
+          lineEl.classList.add('typed');
+          textSpan.textContent = '';
+          let i = 0;
+          const interval = setInterval(() => {
+            textSpan.textContent += text[i];
+            i++;
+            if (i >= text.length) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, speed);
+        });
+      }
+
+      function showDoneTag(lineEl) {
+        const tag = lineEl.querySelector('.wk-done-tag');
+        if (tag) {
+          tag.classList.add('visible');
+          gsap.fromTo(tag, { scale: 1.3, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(2)' });
+        }
+      }
+
+      // — Counter tick-up —
+      function animateCounter(el, target) {
+        const obj = { val: 0 };
+        gsap.to(obj, {
+          val: target,
+          duration: 0.8,
+          ease: 'power2.out',
+          snap: { val: 1 },
+          onUpdate: () => { el.textContent = `(${Math.round(obj.val)})`; }
+        });
+      }
+
+      // — Reset panel for next open —
+      function resetWeeklyPanel() {
+        const panel = document.getElementById('weekly-panel');
+        const terminal = document.getElementById('wk-terminal');
+        const reportContent = document.getElementById('weekly-report-content');
+        const scanline = document.getElementById('wk-scanline');
+
+        panel.classList.remove('active');
+        gsap.set(panel, { opacity: 0, x: 40 });
+        gsap.set(reportContent, { opacity: 0 });
+        gsap.set(scanline, { opacity: 0, top: 0 });
+        gsap.set(terminal, { opacity: 1, height: 'auto', display: 'block' });
+
+        document.querySelectorAll('.wk-line').forEach(line => {
+          line.classList.remove('typed');
+          const textSpan = line.querySelector('.wk-text');
+          if (textSpan) textSpan.textContent = '';
+          const doneTag = line.querySelector('.wk-done-tag');
+          if (doneTag) doneTag.classList.remove('visible');
+        });
+
+        document.querySelectorAll('.wk-cursor').forEach(c => gsap.set(c, { display: 'inline-block' }));
+
+        document.getElementById('weekly-error').classList.add('hidden');
+        document.getElementById('weekly-data').classList.add('hidden');
+        document.getElementById('weekly-linear-list').innerHTML = '';
+        document.getElementById('weekly-youtrack-list').innerHTML = '';
+        document.getElementById('weekly-linear-count').textContent = '';
+        document.getElementById('weekly-youtrack-count').textContent = '';
+      }
+
+      // — Open panel —
+      async function openWeeklyPanel() {
+        if (weeklyPanelOpen) return;
+        weeklyPanelOpen = true;
+
+        const panel = document.getElementById('weekly-panel');
+        const mainContent = document.getElementById('main-content');
+        const terminal = document.getElementById('wk-terminal');
+        const reportContent = document.getElementById('weekly-report-content');
+        const scanline = document.getElementById('wk-scanline');
+        const panelCard = document.getElementById('weekly-panel-card');
+
+        resetWeeklyPanel();
+        panel.classList.add('active');
+
         const now = new Date();
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         document.getElementById('weekly-date-range').textContent =
           `${formatDateDE(weekAgo.toISOString())} – ${formatDateDE(now.toISOString())}`;
         document.getElementById('weekly-other-notes').value = sessionStorage.getItem('weekly_notes') || '';
-        fetchWeeklyData();
+
+        // Phase 1: panel materializes + main shifts left
+        const openTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+        openTl.to(mainContent, { x: -120, duration: 0.6 }, 0);
+        openTl.to(panel, { opacity: 1, x: 0, duration: 0.5 }, 0.05);
+
+        // Border trace: animate stroke
+        const borderRect = document.getElementById('wk-border-rect');
+        if (borderRect) {
+          const perimeter = (420 + panelCard.offsetHeight) * 2;
+          gsap.set(borderRect, { strokeDasharray: perimeter, strokeDashoffset: perimeter });
+          openTl.to(borderRect, { strokeDashoffset: 0, duration: 1.2, ease: 'power2.inOut' }, 0.1);
+          openTl.to(borderRect, { opacity: 0, duration: 0.4 }, 1.2);
+        }
+
+        // Accent glow pulse
+        const accentLine = panelCard.querySelector('.card-accent');
+        if (accentLine) {
+          openTl.to(accentLine, { width: '60%', opacity: 1, duration: 0.6 }, 0.2);
+        }
+        const glowEl = panelCard.querySelector('.card-glow');
+        if (glowEl) {
+          openTl.to(glowEl, { opacity: 1, duration: 0.4 }, 0.2);
+          openTl.to(glowEl, { opacity: 0, duration: 0.6 }, 1.6);
+        }
+
+        // Phase 2: terminal boot + scanline + fetch data in parallel
+        const terminalLines = [
+          { id: 'wk-line-0', text: 'Initializing report...', done: false },
+          { id: 'wk-line-1', text: 'Connecting to Linear...', done: true },
+          { id: 'wk-line-2', text: 'Fetching completed issues...', done: true },
+          { id: 'wk-line-3', text: 'Querying YouTrack...', done: true },
+          { id: 'wk-line-4', text: 'Compiling results...', done: true },
+        ];
+
+        // Scanline sweep
+        openTl.to(scanline, { opacity: 0.8, duration: 0.1 }, 0.4);
+        openTl.to(scanline, { top: '100%', duration: 2.0, ease: 'power1.inOut' }, 0.5);
+        openTl.to(scanline, { opacity: 0, duration: 0.3 }, 2.3);
+
+        // Start data fetch now (runs in background)
+        const dataPromise = fetchWeeklyData();
+
+        // Run terminal typing sequence
+        const typingPromise = (async () => {
+          await new Promise(r => setTimeout(r, 500));
+          for (const line of terminalLines) {
+            const el = document.getElementById(line.id);
+            await typeTerminalLine(el, line.text, 25);
+            if (line.done) {
+              showDoneTag(el);
+            }
+            await new Promise(r => setTimeout(r, 150));
+          }
+        })();
+
+        // Wait for both data + typing to finish
+        await Promise.all([dataPromise, typingPromise]);
+
+        // Hide all cursors
+        document.querySelectorAll('.wk-cursor').forEach(c => gsap.to(c, { display: 'none', duration: 0 }));
+
+        // Phase 3: terminal collapses, report reveals
+        const revealTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+        revealTl.to(terminal, { opacity: 0, height: 0, duration: 0.4, ease: 'power2.inOut', onComplete: () => { terminal.style.display = 'none'; } });
+        revealTl.to(reportContent, { opacity: 1, duration: 0.4 }, 0.2);
+
+        // Stagger sections
+        const sections = document.querySelectorAll('.wk-section');
+        revealTl.fromTo(sections,
+          { opacity: 0, y: 16 },
+          { opacity: 1, y: 0, duration: 0.5, stagger: 0.12 },
+          0.4
+        );
+
+        // Stagger individual issue rows
+        revealTl.add(() => {
+          const rows = document.querySelectorAll('#weekly-linear-list .linear-issue-row, #weekly-youtrack-list .linear-issue-row');
+          if (rows.length) {
+            gsap.fromTo(rows,
+              { opacity: 0, x: -8 },
+              { opacity: 1, x: 0, duration: 0.3, stagger: 0.04, ease: 'power2.out' }
+            );
+          }
+        }, 0.6);
+
+        // Animate counters
+        revealTl.add(() => {
+          const linearCount = document.getElementById('weekly-linear-count');
+          const ytCount = document.getElementById('weekly-youtrack-count');
+          const lcMatch = linearCount.textContent.match(/\((\d+)\)/);
+          const ytMatch = ytCount.textContent.match(/\((\d+)\)/);
+          if (lcMatch) animateCounter(linearCount, parseInt(lcMatch[1]));
+          if (ytMatch) animateCounter(ytCount, parseInt(ytMatch[1]));
+        }, 0.5);
       }
 
-      function closeWeeklyModal() {
-        document.getElementById('weekly-modal-overlay').classList.remove('active');
+      // — Close panel —
+      function closeWeeklyPanel() {
+        if (!weeklyPanelOpen) return;
+        weeklyPanelOpen = false;
+
+        const panel = document.getElementById('weekly-panel');
+        const mainContent = document.getElementById('main-content');
+
+        const closeTl = gsap.timeline({
+          defaults: { ease: 'power3.inOut' },
+          onComplete: () => { resetWeeklyPanel(); }
+        });
+
+        closeTl.to('#weekly-report-content', { opacity: 0, duration: 0.25 }, 0);
+        closeTl.to(panel, { opacity: 0, x: 40, duration: 0.4 }, 0.1);
+        closeTl.to(mainContent, { x: 0, duration: 0.5 }, 0.1);
       }
 
-      // sessionStorage persistence for notes textarea
+      // — sessionStorage persistence for notes —
       const weeklyNotes = document.getElementById('weekly-other-notes');
       weeklyNotes.addEventListener('input', () => sessionStorage.setItem('weekly_notes', weeklyNotes.value));
 
-      document.getElementById('weekly-btn').addEventListener('click', openWeeklyModal);
-      document.getElementById('weekly-close-btn').addEventListener('click', closeWeeklyModal);
-      document.getElementById('weekly-modal-overlay').addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) closeWeeklyModal();
+      // — Event listeners —
+      document.getElementById('weekly-btn').addEventListener('click', () => {
+        if (weeklyPanelOpen) closeWeeklyPanel();
+        else openWeeklyPanel();
       });
+      document.getElementById('weekly-close-btn').addEventListener('click', closeWeeklyPanel);
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && document.getElementById('weekly-modal-overlay').classList.contains('active')) {
-          closeWeeklyModal();
+        if (e.key === 'Escape' && weeklyPanelOpen) {
+          closeWeeklyPanel();
         }
       });
 
+      // — Weekly state helper (error/data toggle) —
       function showWeeklyState(state) {
-        document.getElementById('weekly-loading').classList.toggle('hidden', state !== 'loading');
         document.getElementById('weekly-error').classList.toggle('hidden', state !== 'error');
         document.getElementById('weekly-data').classList.toggle('hidden', state !== 'data');
       }
 
+      // — Data fetchers (unchanged) —
       async function fetchWeeklyLinearIssues() {
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
         const query = `{
@@ -1801,7 +2100,6 @@
       }
 
       async function fetchWeeklyData() {
-        showWeeklyState('loading');
         const errors = [];
         const [linearIssues, youtrackIssues] = await Promise.all([
           fetchWeeklyLinearIssues().catch(err => { errors.push('Linear: ' + err.message); return []; }),
