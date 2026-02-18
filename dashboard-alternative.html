@@ -318,45 +318,43 @@
       }
 
 
-      /* Dashboard wrapper — allows main + weekly panel side-by-side */
-      #dashboard-wrapper {
+      /* Weekly review modal overlay */
+      #weekly-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
         display: flex;
+        align-items: center;
         justify-content: center;
-        align-items: flex-start;
-        gap: 24px;
-        width: 100%;
-        min-height: 100vh;
-        will-change: transform;
-      }
-
-      /* Weekly side-panel */
-      #weekly-panel {
-        width: 420px;
-        min-width: 420px;
-        max-height: 100vh;
-        overflow-y: auto;
-        scrollbar-width: none;
-        position: sticky;
-        top: 0;
         opacity: 0;
         pointer-events: none;
-        padding: 64px 0 64px 0;
-        display: none;
       }
-      #weekly-panel::-webkit-scrollbar { display: none; }
-      #weekly-panel.active {
-        display: block;
+      #weekly-overlay.active {
         pointer-events: auto;
       }
 
+      /* Weekly modal card */
+      #weekly-modal {
+        width: 100%;
+        max-width: 640px;
+        max-height: 80vh;
+        overflow-y: auto;
+        scrollbar-width: none;
+        margin: 0 24px;
+        position: relative;
+      }
+      #weekly-modal::-webkit-scrollbar { display: none; }
+
       /* Border-trace SVG overlay */
-      #weekly-panel .panel-border-trace {
+      #weekly-modal .panel-border-trace {
         position: absolute;
         inset: 0;
         pointer-events: none;
         z-index: 2;
       }
-      #weekly-panel .panel-border-trace rect {
+      #weekly-modal .panel-border-trace rect {
         fill: none;
         stroke: #5E6AD2;
         stroke-width: 1.5;
@@ -419,15 +417,9 @@
         top: 0;
       }
 
-      /* Panel content (report data) */
+      /* Modal content (report data) */
       #weekly-report-content {
         opacity: 0;
-      }
-
-      /* Panel glow effect on the inner card */
-      #weekly-panel-card {
-        position: relative;
-        overflow: hidden;
       }
 
     </style>
@@ -459,11 +451,8 @@
       </div>
     </div>
 
-    <!-- Dashboard wrapper (flex container for main + weekly panel) -->
-    <div id="dashboard-wrapper" style="display: none;">
-
     <!-- Main content (hidden until authenticated) -->
-    <main id="main-content" class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 lg:py-20" style="max-width: 1060px; flex-shrink: 0; width: 100%;">
+    <main class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 lg:py-20 mx-auto" style="max-width: 1060px; display: none;">
 
       <!-- Header -->
       <header class="flex items-start justify-between mb-14 gs-hidden" id="header">
@@ -882,10 +871,10 @@
 
     </main>
 
-    <!-- Weekly Review Side Panel -->
-    <aside id="weekly-panel">
-      <div id="weekly-panel-card" class="dash-card p-0" style="--card-color: #5E6AD2">
-        <!-- Glow + Accent (injected for this card) -->
+    <!-- Weekly Review Modal -->
+    <div id="weekly-overlay">
+      <div id="weekly-modal" class="dash-card p-0" style="--card-color: #5E6AD2">
+        <!-- Glow + Accent -->
         <div class="card-glow"></div>
         <div class="card-accent"></div>
         <!-- Scanline -->
@@ -968,9 +957,7 @@
         </div>
 
       </div>
-    </aside>
-
-    </div> <!-- /dashboard-wrapper -->
+    </div>
 
     <script>
       // ─ Dev mode: bypass auth & gracefully handle API when running locally ─
@@ -1043,7 +1030,7 @@
 
       function showApp() {
         document.getElementById('login-overlay').classList.add('hidden');
-        document.getElementById('dashboard-wrapper').style.display = '';
+        document.querySelector('main').style.display = '';
         if (IS_LOCAL) {
           document.getElementById('logout-btn').title = 'Dev mode';
           document.getElementById('logout-btn').style.borderColor = 'rgba(242,201,76,0.3)';
@@ -1052,7 +1039,7 @@
 
       function showLogin(msg) {
         document.getElementById('login-overlay').classList.remove('hidden');
-        document.getElementById('dashboard-wrapper').style.display = 'none';
+        document.querySelector('main').style.display = 'none';
         if (msg) document.getElementById('login-error').textContent = msg;
       }
 
@@ -1775,9 +1762,8 @@
         }
       }
 
-      // ── Weekly Review Panel ──
-      let weeklyPanelOpen = false;
-      let weeklyCloseTl = null;
+      // ── Weekly Review Modal ──
+      let weeklyOpen = false;
 
       // — Terminal typing helper —
       function typeTerminalLine(lineEl, text, speed = 30) {
@@ -1817,15 +1803,17 @@
         });
       }
 
-      // — Reset panel for next open —
-      function resetWeeklyPanel() {
-        const panel = document.getElementById('weekly-panel');
+      // — Reset modal for next open —
+      function resetWeeklyModal() {
+        const overlay = document.getElementById('weekly-overlay');
+        const modal = document.getElementById('weekly-modal');
         const terminal = document.getElementById('wk-terminal');
         const reportContent = document.getElementById('weekly-report-content');
         const scanline = document.getElementById('wk-scanline');
 
-        panel.classList.remove('active');
-        gsap.set(panel, { opacity: 0, x: 40 });
+        overlay.classList.remove('active');
+        gsap.set(overlay, { opacity: 0 });
+        gsap.set(modal, { opacity: 0, scale: 0.95, y: 20 });
         gsap.set(reportContent, { opacity: 0 });
         gsap.set(scanline, { opacity: 0, top: 0 });
         gsap.set(terminal, { opacity: 1, height: 'auto', display: 'block' });
@@ -1848,20 +1836,19 @@
         document.getElementById('weekly-youtrack-count').textContent = '';
       }
 
-      // — Open panel —
-      async function openWeeklyPanel() {
-        if (weeklyPanelOpen) return;
-        weeklyPanelOpen = true;
+      // — Open modal —
+      async function openWeeklyModal() {
+        if (weeklyOpen) return;
+        weeklyOpen = true;
 
-        const panel = document.getElementById('weekly-panel');
-        const mainContent = document.getElementById('main-content');
+        const overlay = document.getElementById('weekly-overlay');
+        const modal = document.getElementById('weekly-modal');
         const terminal = document.getElementById('wk-terminal');
         const reportContent = document.getElementById('weekly-report-content');
         const scanline = document.getElementById('wk-scanline');
-        const panelCard = document.getElementById('weekly-panel-card');
 
-        resetWeeklyPanel();
-        panel.classList.add('active');
+        resetWeeklyModal();
+        overlay.classList.add('active');
 
         const now = new Date();
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -1869,27 +1856,27 @@
           `${formatDateDE(weekAgo.toISOString())} – ${formatDateDE(now.toISOString())}`;
         document.getElementById('weekly-other-notes').value = sessionStorage.getItem('weekly_notes') || '';
 
-        // Phase 1: panel materializes + main shifts left
+        // Phase 1: overlay fades in, modal scales up with border trace + glow
         const openTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-        openTl.to(mainContent, { x: -120, duration: 0.6 }, 0);
-        openTl.to(panel, { opacity: 1, x: 0, duration: 0.5 }, 0.05);
+        openTl.to(overlay, { opacity: 1, duration: 0.35 }, 0);
+        openTl.to(modal, { opacity: 1, scale: 1, y: 0, duration: 0.5 }, 0.05);
 
         // Border trace: animate stroke
         const borderRect = document.getElementById('wk-border-rect');
         if (borderRect) {
-          const perimeter = (420 + panelCard.offsetHeight) * 2;
+          const perimeter = (modal.offsetWidth + modal.offsetHeight) * 2;
           gsap.set(borderRect, { strokeDasharray: perimeter, strokeDashoffset: perimeter });
           openTl.to(borderRect, { strokeDashoffset: 0, duration: 1.2, ease: 'power2.inOut' }, 0.1);
           openTl.to(borderRect, { opacity: 0, duration: 0.4 }, 1.2);
         }
 
         // Accent glow pulse
-        const accentLine = panelCard.querySelector('.card-accent');
+        const accentLine = modal.querySelector('.card-accent');
         if (accentLine) {
           openTl.to(accentLine, { width: '60%', opacity: 1, duration: 0.6 }, 0.2);
         }
-        const glowEl = panelCard.querySelector('.card-glow');
+        const glowEl = modal.querySelector('.card-glow');
         if (glowEl) {
           openTl.to(glowEl, { opacity: 1, duration: 0.4 }, 0.2);
           openTl.to(glowEl, { opacity: 0, duration: 0.6 }, 1.6);
@@ -1909,7 +1896,7 @@
         openTl.to(scanline, { top: '100%', duration: 2.0, ease: 'power1.inOut' }, 0.5);
         openTl.to(scanline, { opacity: 0, duration: 0.3 }, 2.3);
 
-        // Start data fetch now (runs in background)
+        // Start data fetch (runs in background)
         const dataPromise = fetchWeeklyData();
 
         // Run terminal typing sequence
@@ -1967,22 +1954,22 @@
         }, 0.5);
       }
 
-      // — Close panel —
-      function closeWeeklyPanel() {
-        if (!weeklyPanelOpen) return;
-        weeklyPanelOpen = false;
+      // — Close modal —
+      function closeWeeklyModal() {
+        if (!weeklyOpen) return;
+        weeklyOpen = false;
 
-        const panel = document.getElementById('weekly-panel');
-        const mainContent = document.getElementById('main-content');
+        const overlay = document.getElementById('weekly-overlay');
+        const modal = document.getElementById('weekly-modal');
 
         const closeTl = gsap.timeline({
           defaults: { ease: 'power3.inOut' },
-          onComplete: () => { resetWeeklyPanel(); }
+          onComplete: () => { resetWeeklyModal(); }
         });
 
-        closeTl.to('#weekly-report-content', { opacity: 0, duration: 0.25 }, 0);
-        closeTl.to(panel, { opacity: 0, x: 40, duration: 0.4 }, 0.1);
-        closeTl.to(mainContent, { x: 0, duration: 0.5 }, 0.1);
+        closeTl.to('#weekly-report-content', { opacity: 0, duration: 0.2 }, 0);
+        closeTl.to(modal, { opacity: 0, scale: 0.95, y: 20, duration: 0.35 }, 0.05);
+        closeTl.to(overlay, { opacity: 0, duration: 0.3 }, 0.1);
       }
 
       // — sessionStorage persistence for notes —
@@ -1991,13 +1978,16 @@
 
       // — Event listeners —
       document.getElementById('weekly-btn').addEventListener('click', () => {
-        if (weeklyPanelOpen) closeWeeklyPanel();
-        else openWeeklyPanel();
+        if (weeklyOpen) closeWeeklyModal();
+        else openWeeklyModal();
       });
-      document.getElementById('weekly-close-btn').addEventListener('click', closeWeeklyPanel);
+      document.getElementById('weekly-close-btn').addEventListener('click', closeWeeklyModal);
+      document.getElementById('weekly-overlay').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeWeeklyModal();
+      });
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && weeklyPanelOpen) {
-          closeWeeklyPanel();
+        if (e.key === 'Escape' && weeklyOpen) {
+          closeWeeklyModal();
         }
       });
 
