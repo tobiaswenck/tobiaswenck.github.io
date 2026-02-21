@@ -379,6 +379,8 @@ async function handleGitLab(request, env) {
 
 // ── GitLab file fetch (for package.json etc.) ──
 
+const ALLOWED_FILE_PATHS = new Set(["package.json"]);
+
 async function handleGitLabFile(request, env) {
   const claims = await authenticate(request, env);
   if (!claims) {
@@ -403,6 +405,14 @@ async function handleGitLabFile(request, env) {
   const { projectId, filePath, ref } = body;
   if (!projectId || !filePath || typeof filePath !== "string") {
     return jsonError("Missing projectId or filePath", 400, env);
+  }
+
+  if (!ALLOWED_FILE_PATHS.has(filePath)) {
+    return jsonError(
+      `File not allowed: ${filePath}. Allowed: ${[...ALLOWED_FILE_PATHS].join(", ")}`,
+      403,
+      env,
+    );
   }
 
   // GitLab file_path: encode slashes as %2F
