@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Health Dashboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { 'geist': ['"Geist Mono"', 'monospace'] },
+            colors: {
+              'dash-bg': '#0b0b0d',
+              'surface': '#141416',
+              'surface-hover': '#19191c',
+              'border': 'rgba(255, 255, 255, 0.06)',
+              'muted': '#505058',
+              'muted-light': '#7e7e86',
+              'text-primary': '#ededef',
+              'text-secondary': '#a0a0a8',
+            },
+          },
+        },
+      }
+    </script>
+
+    <style>
+      body { scrollbar-width: none; }
+      body::-webkit-scrollbar { display: none; }
+
+      .dash-card {
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+      }
+
+      .dep-row {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        gap: 16px;
+        align-items: center;
+        padding: 10px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        font-size: 12px;
+      }
+      .dep-row:hover { background: #19191c; }
+      .dep-row:last-child { border-bottom: none; }
+
+      .staleness-badge {
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+      }
+      .staleness-major { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+      .staleness-minor { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+      .staleness-patch { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+      .staleness-current { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+
+      #login-overlay {
+        position: fixed; inset: 0; z-index: 100;
+        background: #0b0b0d;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #login-overlay.hidden { display: none; }
+      #login-box input {
+        background: #0e0e10;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      #login-box input:focus { border-color: rgba(255, 255, 255, 0.12); outline: none; }
+
+      .skeleton { background: rgba(255,255,255,0.04); border-radius: 4px; animation: skeleton-pulse 1.5s ease-in-out infinite; }
+      @keyframes skeleton-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+    </style>
+  </head>
+
+  <body class="font-geist bg-dash-bg text-text-primary min-h-screen overflow-x-hidden">
+
+    <div id="login-overlay">
+      <div id="login-box" class="w-full max-w-[340px] px-6">
+        <h1 class="text-2xl font-semibold tracking-tight mb-8 text-center">Health Dashboard</h1>
+        <form id="login-form" class="flex flex-col gap-3">
+          <input id="login-password" type="password" autocomplete="current-password"
+            placeholder="Password"
+            class="h-10 rounded-lg px-4 text-[13px] text-text-primary placeholder-muted focus:outline-none w-full">
+          <button type="submit" id="login-btn"
+            class="h-10 rounded-lg text-[13px] text-muted-light cursor-pointer w-full border border-[rgba(255,255,255,0.06)] hover:bg-surface-hover">
+            Sign in
+          </button>
+          <p id="login-error" class="text-[11px] text-center text-[#F26F60] min-h-[18px]">&nbsp;</p>
+        </form>
+      </div>
+    </div>
+
+    <main class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 mx-auto" style="max-width: 900px; display: none;">
+
+      <header class="flex items-start justify-between mb-10">
+        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">Dependency Health</h1>
+        <div class="flex items-center gap-3">
+          <a href="dashboard-alternative.html" class="text-[11px] text-muted-light hover:text-text-secondary no-underline">
+            ← Dashboard
+          </a>
+          <button id="logout-btn" title="Logout"
+            class="h-8 w-8 rounded-lg flex items-center justify-center text-muted-light cursor-pointer border border-[rgba(255,255,255,0.06)] hover:bg-surface-hover">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M16 17l5-5m0 0l-5-5m5 5H9M9 3H7.8C6.12 3 5.28 3 4.64 3.33C4.07 3.61 3.61 4.07 3.33 4.64C3 5.28 3 6.12 3 7.8v8.4C3 17.88 3 18.72 3.33 19.36c0.28 0.57 0.74 1.03 1.31 1.31C4.96 19 5.8 19 7.48 19H9"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="mb-6">
+        <label class="text-[11px] text-muted uppercase tracking-wider block mb-2">Repository</label>
+        <select id="repo-select"
+          class="w-full max-w-md h-10 rounded-lg px-4 text-[13px] bg-surface border border-[rgba(255,255,255,0.06)] text-text-primary focus:outline-none focus:border-[rgba(255,255,255,0.12)]">
+          <option value="">Loading projects…</option>
+        </select>
+      </div>
+
+      <div class="dash-card overflow-hidden">
+        <div class="px-5 py-4 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between">
+          <h2 class="text-sm font-medium text-text-primary">Dependencies</h2>
+          <button id="refresh-btn" class="text-[11px] text-muted-light hover:text-text-secondary cursor-pointer">
+            Refresh
+          </button>
+        </div>
+        <div id="deps-content">
+          <div class="p-8 text-center text-muted text-[13px]">
+            Select a repository to check dependency freshness.
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <script>
+      const WORKER_URL = 'https://linear-proxy.tobiaswenck.workers.dev';
+      const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
+      const TOKEN_KEY = 'dash_token';
+      function getToken() { return localStorage.getItem(TOKEN_KEY); }
+      function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+      function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+      function decodePayload(token) {
+        try {
+          const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          return JSON.parse(atob(base64));
+        } catch { return null; }
+      }
+      function isTokenValid() {
+        const token = getToken();
+        if (!token) return false;
+        const p = decodePayload(token);
+        return p?.exp && p.exp > Math.floor(Date.now() / 1000);
+      }
+
+      function showApp() {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.querySelector('main').style.display = '';
+      }
+      function showLogin(msg) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+        document.querySelector('main').style.display = 'none';
+        if (msg) document.getElementById('login-error').textContent = msg;
+      }
+
+      async function workerFetch(path, body) {
+        const token = getToken();
+        const res = await fetch(`${WORKER_URL}${path}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(body || {}),
+        });
+        if (res.status === 401) {
+          clearToken();
+          showLogin('Session expired. Please sign in again.');
+          throw new Error('Unauthorized');
+        }
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || `HTTP ${res.status}`);
+        }
+        return res;
+      }
+
+      // ── Semver & staleness ──
+      function parseSemver(v) {
+        if (!v || typeof v !== 'string') return { major: 0, minor: 0, patch: 0 };
+        const clean = v.replace(/^[^\d]*/, '').split('-')[0];
+        const [major, minor, patch] = clean.split('.').map((n) => parseInt(n, 10) || 0);
+        return { major, minor, patch };
+      }
+
+      function staleness(current, latest) {
+        if (!latest) return { level: 'unknown', severity: 'current', label: '?' };
+        const c = parseSemver(current);
+        const l = parseSemver(latest);
+        if (c.major < l.major) return { level: 'major', severity: 'major', label: 'Major' };
+        if (c.minor < l.minor) return { level: 'minor', severity: 'minor', label: 'Minor' };
+        if (c.patch < l.patch) return { level: 'patch', severity: 'patch', label: 'Patch' };
+        return { level: 'current', severity: 'current', label: 'Current' };
+      }
+
+      // ── Fetch projects ──
+      async function loadProjects() {
+        const res = await workerFetch('/gitlab/projects');
+        const projects = await res.json();
+        const sel = document.getElementById('repo-select');
+        sel.innerHTML = '<option value="">Select a project…</option>' +
+          projects.map((p) => `<option value="${p.id}" data-branch="${p.defaultBranch || 'main'}">${p.path}</option>`).join('');
+      }
+
+      // ── Fetch package.json & check deps ──
+      async function checkDependencies(projectId, ref) {
+        const fileRes = await workerFetch('/gitlab/file', {
+          projectId,
+          filePath: 'package.json',
+          ref: ref || 'main',
+        });
+        const text = await fileRes.text();
+        let pkg;
+        try {
+          pkg = JSON.parse(text);
+        } catch {
+          throw new Error('Invalid package.json');
+        }
+        const allDeps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+        const names = Object.keys(allDeps);
+        if (names.length === 0) return [];
+
+        const verRes = await workerFetch('/npm-versions', { packages: names });
+        const latestList = await verRes.json();
+
+        const report = latestList.map(({ name, latest }) => {
+          const current = allDeps[name];
+          const s = staleness(current, latest);
+          return { name, current, latest, ...s };
+        });
+
+        const order = { major: 0, minor: 1, patch: 2, current: 3 };
+        report.sort((a, b) => (order[a.severity] ?? 4) - (order[b.severity] ?? 4));
+        return report;
+      }
+
+      function renderDeps(report) {
+        const container = document.getElementById('deps-content');
+        if (!report || report.length === 0) {
+          container.innerHTML = '<div class="p-8 text-center text-muted text-[13px]">No dependencies found.</div>';
+          return;
+        }
+
+        const summary = {
+          major: report.filter((r) => r.severity === 'major').length,
+          minor: report.filter((r) => r.severity === 'minor').length,
+          patch: report.filter((r) => r.severity === 'patch').length,
+          current: report.filter((r) => r.severity === 'current').length,
+        };
+
+        container.innerHTML = `
+          <div class="px-5 py-3 flex gap-4 text-[11px] border-b border-[rgba(255,255,255,0.04)]">
+            ${summary.major ? `<span class="text-[#ef4444]">${summary.major} major</span>` : ''}
+            ${summary.minor ? `<span class="text-[#eab308]">${summary.minor} minor</span>` : ''}
+            ${summary.patch ? `<span class="text-[#3b82f6]">${summary.patch} patch</span>` : ''}
+            <span class="text-[#22c55e]">${summary.current} current</span>
+          </div>
+          <div class="divide-y divide-[rgba(255,255,255,0.04)]">
+            ${report.map((r) => `
+              <div class="dep-row">
+                <span class="text-text-primary font-mono truncate">${r.name}</span>
+                <span class="text-muted font-mono text-[11px]">${r.current || '–'}</span>
+                <span class="text-muted-light font-mono text-[11px]">${r.latest || '–'}</span>
+                <span class="staleness-badge staleness-${r.severity}">${r.label}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function renderLoading() {
+        document.getElementById('deps-content').innerHTML = `
+          <div class="p-8 space-y-3">
+            ${[1,2,3,4,5].map(() => '<div class="h-4 skeleton w-full"></div>').join('')}
+          </div>
+        `;
+      }
+
+      function renderError(msg) {
+        document.getElementById('deps-content').innerHTML = `
+          <div class="p-8 text-center text-[#F26F60] text-[13px]">${msg}</div>
+        `;
+      }
+
+      async function runCheck() {
+        const sel = document.getElementById('repo-select');
+        const projectId = sel.value;
+        if (!projectId) {
+          document.getElementById('deps-content').innerHTML =
+            '<div class="p-8 text-center text-muted text-[13px]">Select a repository to check dependency freshness.</div>';
+          return;
+        }
+        const ref = sel.selectedOptions[0]?.dataset?.branch || 'main';
+        renderLoading();
+        try {
+          const report = await checkDependencies(projectId, ref);
+          renderDeps(report);
+        } catch (err) {
+          renderError(err.message || 'Failed to fetch dependencies.');
+        }
+      }
+
+      // ── Init ──
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('login-password').value;
+        const errEl = document.getElementById('login-error');
+        const btn = document.getElementById('login-btn');
+        if (!pw) { errEl.textContent = 'Enter a password'; return; }
+        btn.textContent = '...';
+        btn.disabled = true;
+        errEl.innerHTML = '&nbsp;';
+        try {
+          const res = await fetch(`${WORKER_URL}/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw }),
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok) {
+            errEl.textContent = json?.error || 'Authentication failed';
+            return;
+          }
+          setToken(json.token);
+          showApp();
+          await loadProjects();
+        } catch {
+          errEl.textContent = 'Could not reach server';
+        } finally {
+          btn.textContent = 'Sign in';
+          btn.disabled = false;
+        }
+      });
+
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        if (!IS_LOCAL) { clearToken(); showLogin(); }
+      });
+
+      document.getElementById('repo-select').addEventListener('change', runCheck);
+      document.getElementById('refresh-btn').addEventListener('click', runCheck);
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        if (IS_LOCAL) {
+          console.info('%c[DEV]%c Auth bypassed locally', 'color:#eab308;font-weight:bold', 'color:inherit');
+          showApp();
+          try {
+            await loadProjects();
+          } catch (e) {
+            document.getElementById('repo-select').innerHTML = '<option value="">API unavailable (deploy worker)</option>';
+          }
+          return;
+        }
+        if (isTokenValid()) {
+          showApp();
+          await loadProjects();
+        } else {
+          clearToken();
+          showLogin();
+        }
+      });
+    </script>
+  </body>
+</html>

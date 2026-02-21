@@ -5,10 +5,13 @@
  * injected server-side. All requests require a valid JWT.
  *
  * Routes:
- *   POST /auth      — exchange password for a JWT
- *   POST /          — proxy GraphQL to Linear (requires JWT)
- *   POST /youtrack  — proxy issue queries to YouTrack REST API (requires JWT)
- *   POST /gitlab    — proxy merge request queries to GitLab REST API (requires JWT)
+ *   POST /auth          — exchange password for a JWT
+ *   POST /              — proxy GraphQL to Linear (requires JWT)
+ *   POST /youtrack      — proxy issue queries to YouTrack REST API (requires JWT)
+ *   POST /gitlab        — proxy merge request queries to GitLab REST API (requires JWT)
+ *   POST /gitlab/file   — fetch raw file from GitLab repo (requires JWT)
+ *   POST /gitlab/projects — list projects (for discovering project IDs) (requires JWT)
+ *   POST /npm-versions  — batch fetch latest versions from npm registry (requires JWT)
  *
  * Secrets (set via `wrangler secret put`):
  *   LINEAR_API_KEY      – your Linear personal API key (lin_api_…)
@@ -374,6 +377,145 @@ async function handleGitLab(request, env) {
   });
 }
 
+// ── GitLab file fetch (for package.json etc.) ──
+
+async function handleGitLabFile(request, env) {
+  const claims = await authenticate(request, env);
+  if (!claims) {
+    return jsonError("Unauthorized", 401, env);
+  }
+
+  if (!env.GITLAB_TOKEN) {
+    return jsonError(
+      "Worker misconfigured: GITLAB_TOKEN secret not set",
+      500,
+      env,
+    );
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body", 400, env);
+  }
+
+  const { projectId, filePath, ref } = body;
+  if (!projectId || !filePath || typeof filePath !== "string") {
+    return jsonError("Missing projectId or filePath", 400, env);
+  }
+
+  // GitLab file_path: encode slashes as %2F
+  const encodedPath = filePath.split("/").map(encodeURIComponent).join("%2F");
+  const url = `${GITLAB_BASE}/api/v4/projects/${encodeURIComponent(projectId)}/repository/files/${encodedPath}/raw?ref=${encodeURIComponent(ref || "main")}`;
+
+  const res = await fetch(url, {
+    headers: {
+      "PRIVATE-TOKEN": env.GITLAB_TOKEN,
+    },
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    return jsonResponse(
+      { error: `GitLab ${res.status}`, detail: errText },
+      res.status,
+      env,
+    );
+  }
+
+  const text = await res.text();
+  return new Response(text, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      ...corsHeaders(env),
+    },
+  });
+}
+
+// ── GitLab projects list (for discovering project IDs) ──
+
+async function handleGitLabProjects(request, env) {
+  const claims = await authenticate(request, env);
+  if (!claims) {
+    return jsonError("Unauthorized", 401, env);
+  }
+
+  if (!env.GITLAB_TOKEN) {
+    return jsonError(
+      "Worker misconfigured: GITLAB_TOKEN secret not set",
+      500,
+      env,
+    );
+  }
+
+  const url = `${GITLAB_BASE}/api/v4/projects?membership=true&per_page=50&order_by=last_activity_at`;
+
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "PRIVATE-TOKEN": env.GITLAB_TOKEN,
+    },
+  });
+
+  if (!res.ok) {
+    return jsonError(`GitLab ${res.status}`, res.status, env);
+  }
+
+  const projects = await res.json();
+  const list = projects.map((p) => ({
+    id: p.id,
+    name: p.name,
+    path: p.path_with_namespace,
+    defaultBranch: p.default_branch || "main",
+  }));
+
+  return jsonResponse(list, 200, env);
+}
+
+// ── npm registry version lookup ──
+
+async function handleNpmVersions(request, env) {
+  const claims = await authenticate(request, env);
+  if (!claims) {
+    return jsonError("Unauthorized", 401, env);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body", 400, env);
+  }
+
+  const { packages } = body;
+  if (!Array.isArray(packages) || packages.length === 0) {
+    return jsonError("Missing or empty packages array", 400, env);
+  }
+
+  // Cap at 100 to avoid timeout
+  const toFetch = packages.slice(0, 100).filter((p) => typeof p === "string");
+
+  const results = await Promise.all(
+    toFetch.map(async (name) => {
+      try {
+        const res = await fetch(
+          `https://registry.npmjs.org/${encodeURIComponent(name)}/latest`,
+          { headers: { Accept: "application/json" } },
+        );
+        if (!res.ok) return { name, latest: null };
+        const data = await res.json();
+        return { name, latest: data.version || null };
+      } catch {
+        return { name, latest: null };
+      }
+    }),
+  );
+
+  return jsonResponse(results, 200, env);
+}
+
 // ── Main router ──
 
 export default {
@@ -407,6 +549,18 @@ export default {
 
     if (url.pathname === "/gitlab") {
       return handleGitLab(request, env);
+    }
+
+    if (url.pathname === "/gitlab/file") {
+      return handleGitLabFile(request, env);
+    }
+
+    if (url.pathname === "/gitlab/projects") {
+      return handleGitLabProjects(request, env);
+    }
+
+    if (url.pathname === "/npm-versions") {
+      return handleNpmVersions(request, env);
     }
 
     // Default: Linear proxy (everything else goes here)
