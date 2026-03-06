@@ -6,6 +6,7 @@
     <title>Health Dashboard</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
@@ -80,157 +81,82 @@
       .skeleton { background: rgba(255,255,255,0.04); border-radius: 4px; animation: skeleton-pulse 1.5s ease-in-out infinite; }
       @keyframes skeleton-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
 
-      .mobile-matrix {
+      /* ── Fleet Section ── */
+      .fleet-card {
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
         position: relative;
         overflow: hidden;
       }
-
-      .matrix-scanline {
-        position: absolute;
-        left: 0; right: 0;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
-        pointer-events: none;
-        z-index: 3;
-        top: 0;
-        animation: scanline-sweep 4s linear infinite;
+      .fleet-scan-lane { display: flex; align-items: center; gap: 12px; }
+      .fleet-track {
+        flex: 1; height: 3px; border-radius: 2px;
+        background: rgba(255, 255, 255, 0.04);
+        position: relative; overflow: hidden;
       }
-      @keyframes scanline-sweep {
-        0% { top: 0; opacity: 0; }
-        5% { opacity: 1; }
-        95% { opacity: 1; }
-        100% { top: 100%; opacity: 0; }
+      .fleet-sweep {
+        position: absolute; top: 0; bottom: 0; left: 0; width: 35%;
+        background: linear-gradient(90deg, transparent, rgba(94, 106, 210, 0.7), transparent);
+        border-radius: 2px;
+        animation: fleet-sweep-anim 1.4s ease-in-out infinite;
       }
-
-      .heatmap-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-        font-size: 12px;
-        position: relative;
-        z-index: 1;
+      @keyframes fleet-sweep-anim {
+        0% { transform: translateX(-120%); }
+        100% { transform: translateX(380%); }
       }
-      .heatmap-table th {
-        font-size: 9px;
-        font-weight: 600;
-        color: #505058;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 10px 6px;
-        text-align: center;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        white-space: nowrap;
+      .fleet-fill {
+        position: absolute; inset: 0;
+        background: rgba(34, 197, 94, 0.6);
+        border-radius: 2px;
+        transform: scaleX(0); transform-origin: left;
       }
-      .heatmap-table th:first-child { text-align: left; padding-left: 16px; }
-      .heatmap-table th:last-child { text-align: right; padding-right: 16px; }
-      .heatmap-table th:nth-last-child(2) { text-align: right; padding-right: 4px; }
-
-      .heatmap-row {
-        opacity: 0;
-        animation: row-reveal 0.3s ease forwards;
+      .fleet-dep-card {
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: flex; align-items: center; gap: 10px;
+        position: relative; overflow: hidden;
+        transition: border-color 0.2s, transform 0.15s, background 0.2s;
       }
-      .heatmap-row td {
-        padding: 8px 6px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.025);
-        vertical-align: middle;
-        text-align: center;
-        position: relative;
+      .fleet-dep-card:hover {
+        border-color: rgba(255, 255, 255, 0.1);
+        background: #19191c;
+        transform: translateY(-1px);
       }
-      .heatmap-row:last-child td { border-bottom: none; }
-      .heatmap-row:hover td { background: rgba(255, 255, 255, 0.015); }
-
-      .heatmap-row td:first-child {
-        text-align: left;
-        padding-left: 16px;
-        max-width: 220px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+      .fleet-dep-accent {
+        width: 3px; border-radius: 2px;
+        align-self: stretch; flex-shrink: 0;
       }
-      .heatmap-row td:last-child { text-align: right; padding-right: 16px; }
-      .heatmap-row td:nth-last-child(2) { text-align: right; padding-right: 4px; }
-
-      @keyframes row-reveal {
-        from { opacity: 0; transform: translateY(4px); }
-        to   { opacity: 1; transform: translateY(0); }
+      .fleet-dep-card.severity-major {
+        animation: fleet-pulse-major 3s ease-in-out infinite;
       }
-
-      .heatmap-cell {
-        position: relative;
-        display: inline-block;
-        width: 22px;
-        height: 22px;
-        border-radius: 5px;
-        cursor: default;
-        transition: transform 0.15s ease, filter 0.15s ease;
+      @keyframes fleet-pulse-major {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        50% { box-shadow: 0 0 12px -2px rgba(239, 68, 68, 0.15); }
       }
-      .heatmap-cell::after {
-        content: '';
-        position: absolute;
-        inset: -4px;
-        border-radius: 8px;
-        background: radial-gradient(circle, var(--cell-color) 0%, transparent 70%);
-        opacity: 0.25;
-        z-index: -1;
-        transition: opacity 0.15s ease;
+      .fleet-filter-pill {
+        padding: 4px 12px; border-radius: 6px;
+        font-size: 10px; font-weight: 500; letter-spacing: 0.04em;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: transparent; color: #7e7e86;
+        transition: all 0.15s;
       }
-      .heatmap-cell:hover {
-        transform: scale(1.3);
-        filter: brightness(1.3);
+      .fleet-filter-pill:hover { border-color: rgba(255, 255, 255, 0.1); color: #a0a0a8; }
+      .fleet-filter-pill.active { background: rgba(255, 255, 255, 0.06); color: #ededef; border-color: rgba(255, 255, 255, 0.1); }
+      .fleet-stat-value {
+        font-size: 24px; font-weight: 600; line-height: 1;
+        letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
       }
-      .heatmap-cell:hover::after { opacity: 0.5; }
-
-      .heatmap-cell.severity-major {
-        animation: cell-pulse 2s ease-in-out infinite;
+      .fleet-severity-header {
+        display: flex; align-items: center; gap: 8px;
+        padding: 0 2px; margin-bottom: 6px; margin-top: 16px;
       }
-      @keyframes cell-pulse {
-        0%, 100% { filter: brightness(1); }
-        50% { filter: brightness(1.4); }
-      }
-      .heatmap-cell.severity-major:hover {
-        animation: none;
-        filter: brightness(1.5);
-      }
-
-      .heatmap-cell.severity-current {
-        opacity: 0.18;
-      }
-      .heatmap-cell.severity-current::after { opacity: 0; }
-
-      .hm-tip {
-        position: absolute;
-        bottom: calc(100% + 8px);
-        left: 50%;
-        transform: translateX(-50%) translateY(4px);
-        background: rgba(20, 20, 22, 0.92);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 8px;
-        padding: 5px 10px;
-        font-size: 10px;
-        color: #ededef;
-        white-space: nowrap;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.15s ease, transform 0.15s ease;
-        z-index: 10;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      }
-      .heatmap-cell:hover .hm-tip {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-      }
-
-      .row-severity-bar {
-        position: absolute;
-        left: 0; top: 15%; bottom: 15%;
-        width: 2px;
-        border-radius: 1px;
-      }
-
-      .donut-track { fill: none; stroke: rgba(255,255,255,0.06); }
-      .donut-segment { fill: none; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
+      .fleet-current-toggle { cursor: pointer; user-select: none; }
+      .fleet-current-toggle:hover .fleet-toggle-icon { color: #a0a0a8; }
+      .fleet-toggle-icon { transition: transform 0.2s; }
     </style>
   </head>
 
@@ -269,6 +195,73 @@
         </div>
       </header>
 
+      <!-- ── Mobile Fleet Section ── -->
+      <section id="fleet-section" class="mb-10">
+        <div class="flex items-baseline gap-3 mb-4">
+          <h2 class="text-lg font-semibold tracking-tight">Mobile Fleet</h2>
+          <span class="text-[11px] text-muted">Shared dependencies across all mobile apps</span>
+        </div>
+
+        <div id="fleet-scan-card" class="fleet-card p-5" style="display: none;">
+          <div class="text-[10px] text-muted uppercase tracking-wider mb-5">Scanning Repositories</div>
+          <div class="space-y-4" id="fleet-scan-lanes"></div>
+          <div class="mt-5 pt-4 border-t border-[rgba(255,255,255,0.04)]">
+            <div class="text-[11px] text-muted-light" id="fleet-scan-status">Initializing...</div>
+          </div>
+        </div>
+
+        <div id="fleet-results" style="display: none;">
+          <div id="fleet-hero" class="flex flex-col sm:flex-row gap-3 mb-4">
+            <div class="fleet-card p-5 flex flex-col items-center justify-center flex-shrink-0" style="min-width: 180px;">
+              <svg id="fleet-arc-svg" viewBox="0 0 200 130" width="160" height="104">
+                <path d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="10" stroke-linecap="round"/>
+              </svg>
+              <div class="text-center -mt-6">
+                <span class="text-2xl font-semibold tabular-nums" id="fleet-health-pct">0%</span>
+                <p class="text-[9px] text-muted uppercase tracking-wider mt-1">health</p>
+              </div>
+            </div>
+            <div class="flex-1 grid grid-cols-2 gap-3">
+              <div class="fleet-card p-4">
+                <p class="text-muted text-[9px] tracking-wider uppercase mb-2">Shared</p>
+                <p class="fleet-stat-value text-text-primary" id="fleet-stat-shared">0</p>
+              </div>
+              <div class="fleet-card p-4">
+                <p class="text-[#ef4444] text-[9px] tracking-wider uppercase mb-2">Major</p>
+                <p class="fleet-stat-value text-text-primary" id="fleet-stat-major">0</p>
+              </div>
+              <div class="fleet-card p-4">
+                <p class="text-[#eab308] text-[9px] tracking-wider uppercase mb-2">Minor</p>
+                <p class="fleet-stat-value text-text-primary" id="fleet-stat-minor">0</p>
+              </div>
+              <div class="fleet-card p-4">
+                <p class="text-[#3b82f6] text-[9px] tracking-wider uppercase mb-2">Patch</p>
+                <p class="fleet-stat-value text-text-primary" id="fleet-stat-patch">0</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-2 mb-4" id="fleet-filters">
+            <button class="fleet-filter-pill active" data-filter="all">All</button>
+            <button class="fleet-filter-pill" data-filter="major">Major</button>
+            <button class="fleet-filter-pill" data-filter="minor">Minor</button>
+            <button class="fleet-filter-pill" data-filter="patch">Patch</button>
+            <button class="fleet-filter-pill" data-filter="current">Current</button>
+          </div>
+
+          <div id="fleet-cards-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+        </div>
+
+        <div id="fleet-error" style="display: none;"></div>
+      </section>
+
+      <div class="border-t border-[rgba(255,255,255,0.04)] mb-8"></div>
+
+      <div class="flex items-baseline gap-3 mb-4">
+        <h2 class="text-lg font-semibold tracking-tight">Single Repository</h2>
+        <span class="text-[11px] text-muted">Check any individual project</span>
+      </div>
+
       <div class="mb-6">
         <label class="text-[11px] text-muted uppercase tracking-wider block mb-2">Repository</label>
         <select id="repo-select"
@@ -290,23 +283,6 @@
           </div>
         </div>
       </div>
-
-      <section class="mt-12">
-        <h2 class="text-lg sm:text-xl font-semibold tracking-tight mb-4">Mobile App Dependencies</h2>
-        <p class="text-[12px] text-muted-light mb-6">Shared dependencies across GPS-S, Report, KomReg &amp; Fahrplan that need attention.</p>
-
-        <div class="dash-card overflow-hidden">
-          <div class="px-5 py-4 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between">
-            <h3 class="text-sm font-medium text-text-primary">Shared Updates</h3>
-            <button id="mobile-refresh-btn" class="text-[11px] text-muted-light hover:text-text-secondary cursor-pointer">
-              Refresh
-            </button>
-          </div>
-          <div id="mobile-deps-content">
-            <div class="p-8 text-center text-muted text-[13px]">Loading shared dependencies…</div>
-          </div>
-        </div>
-      </section>
 
     </main>
 
@@ -382,23 +358,15 @@
         return { level: 'current', severity: 'current', label: 'Current' };
       }
 
-      // ── Mobile app repos ──
-      const MOBILE_REPOS = [
-        { path: 'Rail-Network/gps-s/mobileapp', label: 'GPS-S' },
-        { path: 'Rail-Network/report/mobileapp', label: 'Report' },
-        { path: 'Rail-Network/komreg/komregapp', label: 'KomReg' },
-        { path: 'Rail-Network/fahrplan-app', label: 'Fahrplan' },
-      ];
-
-      let cachedProjects = [];
-
       // ── Fetch projects ──
       async function loadProjects() {
         const res = await workerFetch('/gitlab/projects');
-        cachedProjects = await res.json();
+        const projects = await res.json();
         const sel = document.getElementById('repo-select');
         sel.innerHTML = '<option value="">Select a project…</option>' +
-          cachedProjects.map((p) => `<option value="${p.id}" data-branch="${p.defaultBranch || 'main'}">${p.path}</option>`).join('');
+          projects.map((p) => `<option value="${p.id}" data-branch="${p.defaultBranch || 'main'}">${p.path}</option>`).join('');
+        fleetProjects = matchFleetProjects(projects);
+        if (fleetProjects.length > 0) runFleetScan();
       }
 
       // ── Fetch package.json & check deps ──
@@ -499,197 +467,294 @@
         }
       }
 
-      // ── Mobile app shared deps ──
-      function matchMobileRepos() {
-        return MOBILE_REPOS.map((repo) => {
-          const match = cachedProjects.find(
-            (p) => p.path === repo.path || p.pathWithNamespace === repo.path || p.path_with_namespace === repo.path
-          );
-          return match ? { ...repo, id: match.id, branch: match.defaultBranch || match.default_branch || 'main' } : null;
+      // ── Mobile Fleet ──
+      const FLEET_REPOS = [
+        { path: 'Rail-Network/gps-s/mobileapp', label: 'GPS-S' },
+        { path: 'Rail-Network/report/mobileapp', label: 'Report' },
+        { path: 'Rail-Network/komreg/komregapp', label: 'KomReg' },
+        { path: 'Rail-Network/fahrplan-app', label: 'Fahrplan' },
+      ];
+      let fleetProjects = [];
+      let fleetReport = null;
+      let fleetActiveFilter = 'all';
+      let fleetCurrentExpanded = false;
+
+      function matchFleetProjects(projects) {
+        return FLEET_REPOS.map(repo => {
+          const p = projects.find(pr => pr.path === repo.path || pr.path.endsWith('/' + repo.path) || pr.path.includes(repo.path));
+          return p ? { ...repo, id: p.id, branch: p.defaultBranch || 'main' } : null;
         }).filter(Boolean);
       }
 
-      async function fetchRepoDeps(repo) {
+      function buildFleetScanLanes() {
+        document.getElementById('fleet-scan-lanes').innerHTML = FLEET_REPOS.map((repo, i) => `
+          <div class="fleet-scan-lane" id="fleet-lane-${i}">
+            <span class="text-[11px] text-muted-light truncate" style="width: 100px;">${repo.label}</span>
+            <div class="fleet-track">
+              <div class="fleet-sweep" id="fleet-sweep-${i}"></div>
+              <div class="fleet-fill" id="fleet-fill-${i}"></div>
+            </div>
+            <svg class="fleet-lane-check" id="fleet-check-${i}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        `).join('');
+      }
+
+      function markLaneComplete(index) {
+        const sweep = document.getElementById(`fleet-sweep-${index}`);
+        const fill = document.getElementById(`fleet-fill-${index}`);
+        const check = document.getElementById(`fleet-check-${index}`);
+        if (sweep) sweep.style.display = 'none';
+        if (fill) gsap.to(fill, { scaleX: 1, duration: 0.4, ease: 'power2.out' });
+        if (check) gsap.to(check, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2)', delay: 0.15 });
+      }
+
+      function updateFleetStatus(text) {
+        const el = document.getElementById('fleet-scan-status');
+        if (el) el.textContent = text;
+      }
+
+      async function fetchFleetPackageJson(project) {
         const fileRes = await workerFetch('/gitlab/file', {
-          projectId: repo.id,
+          projectId: project.id,
           filePath: 'package.json',
-          ref: repo.branch,
+          ref: project.branch,
         });
         const text = await fileRes.text();
-        const pkg = JSON.parse(text);
-        return { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+        return JSON.parse(text);
       }
 
-      async function loadMobileAppsSection() {
-        const container = document.getElementById('mobile-deps-content');
-        container.innerHTML = `<div class="p-8 space-y-3">${[1,2,3,4,5].map(() => '<div class="h-4 skeleton w-full"></div>').join('')}</div>`;
-
-        const repos = matchMobileRepos();
-        if (repos.length === 0) {
-          container.innerHTML = '<div class="p-8 text-center text-muted text-[13px]">Could not find mobile app projects.</div>';
-          return;
-        }
-
-        try {
-          const results = await Promise.allSettled(repos.map((r) => fetchRepoDeps(r)));
-
-          const repoResults = [];
-          const warnings = [];
-          results.forEach((res, i) => {
-            if (res.status === 'fulfilled') {
-              repoResults.push({ repo: repos[i], deps: res.value });
-            } else {
-              warnings.push(repos[i].label);
-            }
-          });
-
-          if (repoResults.length < 2) {
-            container.innerHTML = '<div class="p-8 text-center text-[#F26F60] text-[13px]">Not enough repos responded to compare.</div>';
-            return;
+      function computeSharedDeps(pkgList) {
+        const allDepMaps = pkgList.map(pkg => ({
+          ...(pkg.dependencies || {}),
+          ...(pkg.devDependencies || {}),
+        }));
+        const firstDeps = allDepMaps[0];
+        const shared = {};
+        for (const [name, version] of Object.entries(firstDeps)) {
+          if (allDepMaps.every(deps => deps[name] === version)) {
+            shared[name] = version;
           }
-
-          const depSets = repoResults.map((r) => new Set(Object.keys(r.deps)));
-          const sharedNames = [...depSets[0]].filter((name) => depSets.every((s) => s.has(name)));
-
-          if (sharedNames.length === 0) {
-            container.innerHTML = '<div class="p-8 text-center text-muted text-[13px]">No shared dependencies found.</div>';
-            return;
-          }
-
-          const verRes = await workerFetch('/npm-versions', { packages: sharedNames });
-          const latestList = await verRes.json();
-          const latestMap = {};
-          latestList.forEach(({ name, latest }) => { latestMap[name] = latest; });
-
-          const SEVERITY_ORDER = { major: 0, minor: 1, patch: 2, current: 3 };
-
-          const sharedDeps = sharedNames.map((name) => {
-            const latest = latestMap[name];
-            const perApp = repoResults.map((r) => {
-              const current = r.deps[name];
-              const s = staleness(current, latest);
-              return { label: r.repo.label, current, severity: s.severity };
-            });
-            const worstSeverity = perApp.reduce(
-              (w, a) => (SEVERITY_ORDER[a.severity] ?? 3) < (SEVERITY_ORDER[w] ?? 3) ? a.severity : w,
-              'current'
-            );
-            return { name, latest, perApp, worstSeverity };
-          });
-
-          const outdated = sharedDeps
-            .filter((d) => d.worstSeverity !== 'current')
-            .sort((a, b) => (SEVERITY_ORDER[a.worstSeverity] ?? 4) - (SEVERITY_ORDER[b.worstSeverity] ?? 4) || a.name.localeCompare(b.name));
-
-          renderMobileSection(outdated, sharedDeps.length, warnings, repoResults.length);
-        } catch (err) {
-          container.innerHTML = `<div class="p-8 text-center text-[#F26F60] text-[13px]">${err.message || 'Failed to load mobile deps.'}</div>`;
         }
+        return shared;
       }
 
-      function buildDonutSVG(counts, total) {
-        if (total === 0) return '';
-        const R = 34, C = 2 * Math.PI * R;
-        const colors = { major: '#ef4444', minor: '#eab308', patch: '#3b82f6', current: '#22c55e' };
-        const order = ['major', 'minor', 'patch', 'current'];
+      function renderHealthArc(report) {
+        const svg = document.getElementById('fleet-arc-svg');
+        svg.querySelectorAll('.fleet-arc-seg').forEach(el => el.remove());
+        const total = report.length;
+        if (total === 0) return;
+        const counts = {
+          current: report.filter(r => r.severity === 'current').length,
+          patch: report.filter(r => r.severity === 'patch').length,
+          minor: report.filter(r => r.severity === 'minor').length,
+          major: report.filter(r => r.severity === 'major').length,
+        };
+        const healthPct = Math.round((counts.current / total) * 100);
+        const arcPath = 'M 20 110 A 80 80 0 0 1 180 110';
+        const arcLen = Math.PI * 80;
+        const gap = 4;
+        const colors = { current: '#22c55e', patch: '#3b82f6', minor: '#eab308', major: '#ef4444' };
         let offset = 0;
-        const segments = order
-          .filter((k) => counts[k] > 0)
-          .map((k) => {
-            const frac = counts[k] / total;
-            const dash = frac * C;
-            const gap = C - dash;
-            const seg = `<circle class="donut-segment" r="${R}" cx="42" cy="42" stroke="${colors[k]}" stroke-width="7" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" />`;
-            offset += dash;
-            return seg;
-          }).join('');
-
-        return `<svg viewBox="0 0 84 84" width="80" height="80">
-          <circle class="donut-track" r="${R}" cx="42" cy="42" stroke-width="7" />
-          ${segments}
-          <text x="42" y="40" text-anchor="middle" fill="#ededef" font-size="16" font-family="Geist Mono, monospace" font-weight="600">${total - (counts.current || 0)}</text>
-          <text x="42" y="52" text-anchor="middle" fill="#7e7e86" font-size="8" font-family="Geist Mono, monospace">updates</text>
-        </svg>`;
+        const segs = [];
+        for (const key of ['current', 'patch', 'minor', 'major']) {
+          if (counts[key] === 0) continue;
+          const segLen = (counts[key] / total) * arcLen;
+          const visLen = Math.max(segLen - gap, 2);
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.classList.add('fleet-arc-seg');
+          path.setAttribute('d', arcPath);
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', colors[key]);
+          path.setAttribute('stroke-width', '10');
+          path.setAttribute('stroke-linecap', 'round');
+          path.setAttribute('stroke-dasharray', `${visLen} ${arcLen + visLen}`);
+          path.setAttribute('stroke-dashoffset', `${-offset - gap / 2}`);
+          path.style.opacity = '0';
+          svg.appendChild(path);
+          segs.push(path);
+          offset += segLen;
+        }
+        segs.forEach((s, i) => {
+          gsap.to(s, { opacity: 1, duration: 0.5, delay: 0.2 + i * 0.12, ease: 'power2.out' });
+        });
+        const pctEl = document.getElementById('fleet-health-pct');
+        const obj = { val: 0 };
+        gsap.to(obj, {
+          val: healthPct, duration: 1.2, delay: 0.3, ease: 'power2.out',
+          snap: { val: 1 },
+          onUpdate: () => { pctEl.textContent = Math.round(obj.val) + '%'; },
+        });
       }
 
-      function renderMobileSection(outdated, totalShared, warnings, repoCount) {
-        const container = document.getElementById('mobile-deps-content');
-        const COLORS = { major: '#ef4444', minor: '#eab308', patch: '#3b82f6', current: '#22c55e' };
+      function animateFleetCounter(el, target) {
+        const obj = { val: 0 };
+        gsap.to(obj, {
+          val: target, duration: 0.8, ease: 'power2.out',
+          snap: { val: 1 },
+          onUpdate: () => { el.textContent = Math.round(obj.val); },
+        });
+      }
 
-        const counts = { major: 0, minor: 0, patch: 0, current: 0 };
-        outdated.forEach((d) => { counts[d.worstSeverity] = (counts[d.worstSeverity] || 0) + 1; });
-        counts.current = totalShared - outdated.length;
+      function renderFleetStats(report) {
+        const c = {
+          shared: report.length,
+          major: report.filter(r => r.severity === 'major').length,
+          minor: report.filter(r => r.severity === 'minor').length,
+          patch: report.filter(r => r.severity === 'patch').length,
+        };
+        animateFleetCounter(document.getElementById('fleet-stat-shared'), c.shared);
+        animateFleetCounter(document.getElementById('fleet-stat-major'), c.major);
+        animateFleetCounter(document.getElementById('fleet-stat-minor'), c.minor);
+        animateFleetCounter(document.getElementById('fleet-stat-patch'), c.patch);
+      }
 
-        const donut = buildDonutSVG(counts, totalShared);
-
-        const statPills = [
-          counts.major ? `<span class="text-[#ef4444]">${counts.major} major</span>` : '',
-          counts.minor ? `<span class="text-[#eab308]">${counts.minor} minor</span>` : '',
-          counts.patch ? `<span class="text-[#3b82f6]">${counts.patch} patch</span>` : '',
-          `<span class="text-[#22c55e]">${counts.current} current</span>`,
-        ].filter(Boolean).join('');
-
-        const warningHTML = warnings.length
-          ? `<div class="px-5 py-2 text-[11px] text-[#eab308] border-b border-[rgba(255,255,255,0.04)]">Could not load: ${warnings.join(', ')}</div>`
-          : '';
-
-        if (outdated.length === 0) {
-          container.innerHTML = `
-            ${warningHTML}
-            <div class="flex items-center gap-6 px-5 py-5">
-              ${donut}
-              <div class="text-[12px]">
-                <div class="text-text-primary font-medium mb-1">${totalShared} shared dependencies</div>
-                <div class="text-[#22c55e]">All up to date across ${repoCount} apps</div>
-              </div>
-            </div>
-          `;
+      function renderFleetCards(report, filter) {
+        const container = document.getElementById('fleet-cards-grid');
+        const filtered = filter === 'all' ? report : report.filter(r => r.severity === filter);
+        if (filtered.length === 0) {
+          container.innerHTML = '<div class="text-center text-muted text-[12px] py-6 col-span-2">No dependencies in this category.</div>';
           return;
         }
+        const colors = { major: '#ef4444', minor: '#eab308', patch: '#3b82f6', current: '#22c55e' };
+        const groups = {};
+        for (const dep of filtered) {
+          if (!groups[dep.severity]) groups[dep.severity] = [];
+          groups[dep.severity].push(dep);
+        }
+        const order = ['major', 'minor', 'patch', 'current'];
+        let html = '';
+        for (const sev of order) {
+          if (!groups[sev]) continue;
+          const deps = groups[sev];
+          if (filter === 'all') {
+            const isCurrent = sev === 'current';
+            html += `
+              <div class="col-span-1 sm:col-span-2 fleet-severity-header ${isCurrent ? 'fleet-current-toggle' : ''}" ${isCurrent ? 'onclick="toggleFleetCurrent()"' : ''}>
+                <div class="w-2 h-2 rounded-full" style="background: ${colors[sev]};"></div>
+                <span class="text-[10px] text-muted uppercase tracking-wider">${sev} &mdash; ${deps.length}</span>
+                ${isCurrent ? '<svg class="fleet-toggle-icon text-muted" id="fleet-current-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>' : ''}
+              </div>`;
+          }
+          const hide = sev === 'current' && filter === 'all';
+          for (const dep of deps) {
+            html += `
+              <div class="fleet-dep-card ${sev === 'major' ? 'severity-major' : ''}" ${hide ? 'data-current-card style="display:none;"' : ''}>
+                <div class="fleet-dep-accent" style="background: ${colors[dep.severity]};"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[12px] text-text-primary font-medium truncate">${dep.name}</div>
+                  <div class="text-[10px] text-muted mt-0.5 font-mono">
+                    ${dep.current || '?'} <span class="text-muted-light mx-1">&rarr;</span> <span class="text-text-secondary">${dep.latest || '?'}</span>
+                  </div>
+                </div>
+                <span class="staleness-badge staleness-${dep.severity}">${dep.label}</span>
+              </div>`;
+          }
+        }
+        container.innerHTML = html;
+      }
 
-        const appLabels = outdated[0].perApp.map((a) => a.label);
+      function toggleFleetCurrent() {
+        fleetCurrentExpanded = !fleetCurrentExpanded;
+        document.querySelectorAll('[data-current-card]').forEach(card => {
+          card.style.display = fleetCurrentExpanded ? '' : 'none';
+        });
+        const chevron = document.getElementById('fleet-current-chevron');
+        if (chevron) chevron.style.transform = fleetCurrentExpanded ? 'rotate(180deg)' : '';
+      }
 
-        const headerCells = appLabels.map((l) => `<th>${l}</th>`).join('');
+      function setupFleetFilters() {
+        document.querySelectorAll('.fleet-filter-pill').forEach(pill => {
+          pill.addEventListener('click', () => {
+            document.querySelectorAll('.fleet-filter-pill').forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            fleetActiveFilter = pill.dataset.filter;
+            fleetCurrentExpanded = false;
+            renderFleetCards(fleetReport, fleetActiveFilter);
+            gsap.fromTo('#fleet-cards-grid > *', { opacity: 0, y: 6 }, { opacity: 1, y: 0, stagger: 0.02, duration: 0.25, ease: 'power2.out' });
+          });
+        });
+      }
 
-        const rows = outdated.map((d, i) => {
-          const cells = d.perApp.map((a) => {
-            const color = COLORS[a.severity] || '#505058';
-            return `<td><span class="heatmap-cell severity-${a.severity}" style="background:${color};--cell-color:${color}"><span class="hm-tip">${a.label}: ${a.current || '–'}</span></span></td>`;
-          }).join('');
+      function revealFleetResults() {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.fromTo('#fleet-hero', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5 }, 0);
+        tl.fromTo('#fleet-filters', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.4 }, 0.15);
+        tl.add(() => {
+          renderHealthArc(fleetReport);
+          renderFleetStats(fleetReport);
+        }, 0.1);
+        const cards = document.querySelectorAll('#fleet-cards-grid > .fleet-dep-card');
+        if (cards.length) {
+          tl.fromTo(cards, { opacity: 0, y: 8 }, { opacity: 1, y: 0, stagger: 0.03, duration: 0.3 }, 0.3);
+        }
+        const headers = document.querySelectorAll('#fleet-cards-grid > .fleet-severity-header');
+        if (headers.length) {
+          tl.fromTo(headers, { opacity: 0 }, { opacity: 1, stagger: 0.05, duration: 0.3 }, 0.25);
+        }
+      }
 
-          const badge = `<span class="staleness-badge staleness-${d.worstSeverity}">${d.worstSeverity[0].toUpperCase() + d.worstSeverity.slice(1)}</span>`;
-          const barColor = COLORS[d.worstSeverity] || '#505058';
-
-          return `<tr class="heatmap-row" style="animation-delay:${i * 40}ms">
-            <td class="text-text-primary font-mono"><span class="row-severity-bar" style="background:${barColor}"></span>${d.name}</td>
-            ${cells}
-            <td class="text-muted-light font-mono text-[11px]">${d.latest || '–'}</td>
-            <td>${badge}</td>
-          </tr>`;
-        }).join('');
-
-        container.innerHTML = `
-          ${warningHTML}
-          <div class="flex items-center gap-6 px-5 py-5 border-b border-[rgba(255,255,255,0.04)]">
-            ${donut}
-            <div>
-              <div class="text-[12px] text-text-primary font-medium mb-2">${totalShared} shared across ${repoCount} apps</div>
-              <div class="flex flex-wrap gap-3 text-[11px]">${statPills}</div>
-            </div>
-          </div>
-          <div class="mobile-matrix">
-            <div class="matrix-scanline"></div>
-            <table class="heatmap-table">
-              <thead><tr>
-                <th>Package</th>
-                ${headerCells}
-                <th>Latest</th>
-                <th></th>
-              </tr></thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        `;
+      async function runFleetScan() {
+        if (fleetProjects.length < FLEET_REPOS.length) {
+          const errorEl = document.getElementById('fleet-error');
+          errorEl.style.display = '';
+          errorEl.innerHTML = '<div class="fleet-card p-6 text-center text-muted text-[12px]">Could not find all 4 mobile app repositories.</div>';
+          return;
+        }
+        const scanCard = document.getElementById('fleet-scan-card');
+        const results = document.getElementById('fleet-results');
+        const errorEl = document.getElementById('fleet-error');
+        scanCard.style.display = '';
+        results.style.display = 'none';
+        errorEl.style.display = 'none';
+        buildFleetScanLanes();
+        gsap.fromTo(scanCard, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+        try {
+          updateFleetStatus('Scanning repositories...');
+          const pkgs = await Promise.all(
+            fleetProjects.map((proj, i) =>
+              fetchFleetPackageJson(proj).then(pkg => { markLaneComplete(i); return pkg; })
+            )
+          );
+          updateFleetStatus('Analyzing shared dependencies...');
+          await new Promise(r => setTimeout(r, 300));
+          const shared = computeSharedDeps(pkgs);
+          const names = Object.keys(shared);
+          if (names.length === 0) {
+            updateFleetStatus('No shared dependencies found.');
+            await new Promise(r => setTimeout(r, 800));
+            await gsap.to(scanCard, { opacity: 0, height: 0, marginBottom: 0, duration: 0.4, ease: 'power2.inOut' });
+            scanCard.style.display = 'none';
+            errorEl.style.display = '';
+            errorEl.innerHTML = '<div class="fleet-card p-8 text-center text-muted text-[12px]">No shared dependencies found across all repositories.</div>';
+            return;
+          }
+          updateFleetStatus('Resolving npm versions...');
+          const verRes = await workerFetch('/npm-versions', { packages: names });
+          const latestList = await verRes.json();
+          const report = latestList.map(({ name, latest }) => {
+            const current = shared[name];
+            const s = staleness(current, latest);
+            return { name, current, latest, ...s };
+          });
+          const sevOrder = { major: 0, minor: 1, patch: 2, current: 3 };
+          report.sort((a, b) => (sevOrder[a.severity] ?? 4) - (sevOrder[b.severity] ?? 4) || a.name.localeCompare(b.name));
+          fleetReport = report;
+          updateFleetStatus('Complete');
+          await new Promise(r => setTimeout(r, 500));
+          await gsap.to(scanCard, { opacity: 0, height: 0, marginBottom: 0, padding: 0, duration: 0.4, ease: 'power2.inOut' });
+          scanCard.style.display = 'none';
+          renderFleetCards(report, 'all');
+          setupFleetFilters();
+          results.style.display = '';
+          revealFleetResults();
+        } catch (err) {
+          console.error('[Fleet]', err);
+          await new Promise(r => setTimeout(r, 300));
+          await gsap.to(scanCard, { opacity: 0, height: 0, duration: 0.3, ease: 'power2.inOut' });
+          scanCard.style.display = 'none';
+          errorEl.style.display = '';
+          errorEl.innerHTML = `<div class="fleet-card p-6 text-center text-[#F26F60] text-[12px]">${err.message || 'Fleet scan failed.'}</div>`;
+        }
       }
 
       // ── Init ──
@@ -716,7 +781,6 @@
           setToken(json.token);
           showApp();
           await loadProjects();
-          loadMobileAppsSection();
         } catch {
           errEl.textContent = 'Could not reach server';
         } finally {
@@ -731,7 +795,6 @@
 
       document.getElementById('repo-select').addEventListener('change', runCheck);
       document.getElementById('refresh-btn').addEventListener('click', runCheck);
-      document.getElementById('mobile-refresh-btn').addEventListener('click', loadMobileAppsSection);
 
       document.addEventListener('DOMContentLoaded', async () => {
         if (IS_LOCAL) {
@@ -739,7 +802,6 @@
           showApp();
           try {
             await loadProjects();
-            loadMobileAppsSection();
           } catch (e) {
             document.getElementById('repo-select').innerHTML = '<option value="">API unavailable (deploy worker)</option>';
           }
@@ -748,7 +810,6 @@
         if (isTokenValid()) {
           showApp();
           await loadProjects();
-          loadMobileAppsSection();
         } else {
           clearToken();
           showLogin();
