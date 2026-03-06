@@ -79,6 +79,46 @@
 
       .skeleton { background: rgba(255,255,255,0.04); border-radius: 4px; animation: skeleton-pulse 1.5s ease-in-out infinite; }
       @keyframes skeleton-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+      .mobile-dep-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 16px;
+      }
+      @media (max-width: 640px) { .mobile-dep-grid { grid-template-columns: 1fr; } }
+
+      .mobile-dep-card {
+        background: #19191c;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-left: 3px solid var(--severity-color, #505058);
+        border-radius: 8px;
+        padding: 12px 14px;
+        transition: background 0.15s ease;
+      }
+      .mobile-dep-card:hover { background: #1e1e22; }
+
+      .app-version-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 3px 0;
+        font-size: 11px;
+      }
+      .app-version-row + .app-version-row {
+        border-top: 1px solid rgba(255, 255, 255, 0.03);
+      }
+
+      .severity-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .donut-track { fill: none; stroke: rgba(255,255,255,0.06); }
+      .donut-segment { fill: none; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
     </style>
   </head>
 
@@ -138,6 +178,23 @@
           </div>
         </div>
       </div>
+
+      <section class="mt-12">
+        <h2 class="text-lg sm:text-xl font-semibold tracking-tight mb-4">Mobile App Dependencies</h2>
+        <p class="text-[12px] text-muted-light mb-6">Shared dependencies across GPS-S, Report, KomReg &amp; Fahrplan that need attention.</p>
+
+        <div class="dash-card overflow-hidden">
+          <div class="px-5 py-4 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between">
+            <h3 class="text-sm font-medium text-text-primary">Shared Updates</h3>
+            <button id="mobile-refresh-btn" class="text-[11px] text-muted-light hover:text-text-secondary cursor-pointer">
+              Refresh
+            </button>
+          </div>
+          <div id="mobile-deps-content">
+            <div class="p-8 text-center text-muted text-[13px]">Loading shared dependencies…</div>
+          </div>
+        </div>
+      </section>
 
     </main>
 
@@ -213,13 +270,23 @@
         return { level: 'current', severity: 'current', label: 'Current' };
       }
 
+      // ── Mobile app repos ──
+      const MOBILE_REPOS = [
+        { path: 'Rail-Network/gps-s/mobileapp', label: 'GPS-S' },
+        { path: 'Rail-Network/report/mobileapp', label: 'Report' },
+        { path: 'Rail-Network/komreg/komregapp', label: 'KomReg' },
+        { path: 'Rail-Network/fahrplan-app', label: 'Fahrplan' },
+      ];
+
+      let cachedProjects = [];
+
       // ── Fetch projects ──
       async function loadProjects() {
         const res = await workerFetch('/gitlab/projects');
-        const projects = await res.json();
+        cachedProjects = await res.json();
         const sel = document.getElementById('repo-select');
         sel.innerHTML = '<option value="">Select a project…</option>' +
-          projects.map((p) => `<option value="${p.id}" data-branch="${p.defaultBranch || 'main'}">${p.path}</option>`).join('');
+          cachedProjects.map((p) => `<option value="${p.id}" data-branch="${p.defaultBranch || 'main'}">${p.path}</option>`).join('');
       }
 
       // ── Fetch package.json & check deps ──
@@ -320,6 +387,191 @@
         }
       }
 
+      // ── Mobile app shared deps ──
+      function matchMobileRepos() {
+        return MOBILE_REPOS.map((repo) => {
+          const match = cachedProjects.find(
+            (p) => p.path === repo.path || p.pathWithNamespace === repo.path || p.path_with_namespace === repo.path
+          );
+          return match ? { ...repo, id: match.id, branch: match.defaultBranch || match.default_branch || 'main' } : null;
+        }).filter(Boolean);
+      }
+
+      async function fetchRepoDeps(repo) {
+        const fileRes = await workerFetch('/gitlab/file', {
+          projectId: repo.id,
+          filePath: 'package.json',
+          ref: repo.branch,
+        });
+        const text = await fileRes.text();
+        const pkg = JSON.parse(text);
+        return { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+      }
+
+      async function loadMobileAppsSection() {
+        const container = document.getElementById('mobile-deps-content');
+        container.innerHTML = `<div class="p-8 space-y-3">${[1,2,3,4,5].map(() => '<div class="h-4 skeleton w-full"></div>').join('')}</div>`;
+
+        const repos = matchMobileRepos();
+        if (repos.length === 0) {
+          container.innerHTML = '<div class="p-8 text-center text-muted text-[13px]">Could not find mobile app projects.</div>';
+          return;
+        }
+
+        try {
+          const results = await Promise.allSettled(repos.map((r) => fetchRepoDeps(r)));
+
+          const repoResults = [];
+          const warnings = [];
+          results.forEach((res, i) => {
+            if (res.status === 'fulfilled') {
+              repoResults.push({ repo: repos[i], deps: res.value });
+            } else {
+              warnings.push(repos[i].label);
+            }
+          });
+
+          if (repoResults.length < 2) {
+            container.innerHTML = '<div class="p-8 text-center text-[#F26F60] text-[13px]">Not enough repos responded to compare.</div>';
+            return;
+          }
+
+          const depSets = repoResults.map((r) => new Set(Object.keys(r.deps)));
+          const sharedNames = [...depSets[0]].filter((name) => depSets.every((s) => s.has(name)));
+
+          if (sharedNames.length === 0) {
+            container.innerHTML = '<div class="p-8 text-center text-muted text-[13px]">No shared dependencies found.</div>';
+            return;
+          }
+
+          const verRes = await workerFetch('/npm-versions', { packages: sharedNames });
+          const latestList = await verRes.json();
+          const latestMap = {};
+          latestList.forEach(({ name, latest }) => { latestMap[name] = latest; });
+
+          const SEVERITY_ORDER = { major: 0, minor: 1, patch: 2, current: 3 };
+
+          const sharedDeps = sharedNames.map((name) => {
+            const latest = latestMap[name];
+            const perApp = repoResults.map((r) => {
+              const current = r.deps[name];
+              const s = staleness(current, latest);
+              return { label: r.repo.label, current, severity: s.severity };
+            });
+            const worstSeverity = perApp.reduce(
+              (w, a) => (SEVERITY_ORDER[a.severity] ?? 3) < (SEVERITY_ORDER[w] ?? 3) ? a.severity : w,
+              'current'
+            );
+            return { name, latest, perApp, worstSeverity };
+          });
+
+          const outdated = sharedDeps
+            .filter((d) => d.worstSeverity !== 'current')
+            .sort((a, b) => (SEVERITY_ORDER[a.worstSeverity] ?? 4) - (SEVERITY_ORDER[b.worstSeverity] ?? 4) || a.name.localeCompare(b.name));
+
+          renderMobileSection(outdated, sharedDeps.length, warnings, repoResults.length);
+        } catch (err) {
+          container.innerHTML = `<div class="p-8 text-center text-[#F26F60] text-[13px]">${err.message || 'Failed to load mobile deps.'}</div>`;
+        }
+      }
+
+      function buildDonutSVG(counts, total) {
+        if (total === 0) return '';
+        const R = 34, C = 2 * Math.PI * R;
+        const colors = { major: '#ef4444', minor: '#eab308', patch: '#3b82f6', current: '#22c55e' };
+        const order = ['major', 'minor', 'patch', 'current'];
+        let offset = 0;
+        const segments = order
+          .filter((k) => counts[k] > 0)
+          .map((k) => {
+            const frac = counts[k] / total;
+            const dash = frac * C;
+            const gap = C - dash;
+            const seg = `<circle class="donut-segment" r="${R}" cx="42" cy="42" stroke="${colors[k]}" stroke-width="7" stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" />`;
+            offset += dash;
+            return seg;
+          }).join('');
+
+        return `<svg viewBox="0 0 84 84" width="80" height="80">
+          <circle class="donut-track" r="${R}" cx="42" cy="42" stroke-width="7" />
+          ${segments}
+          <text x="42" y="40" text-anchor="middle" fill="#ededef" font-size="16" font-family="Geist Mono, monospace" font-weight="600">${total - (counts.current || 0)}</text>
+          <text x="42" y="52" text-anchor="middle" fill="#7e7e86" font-size="8" font-family="Geist Mono, monospace">updates</text>
+        </svg>`;
+      }
+
+      function renderMobileSection(outdated, totalShared, warnings, repoCount) {
+        const container = document.getElementById('mobile-deps-content');
+        const COLORS = { major: '#ef4444', minor: '#eab308', patch: '#3b82f6', current: '#22c55e' };
+
+        const counts = { major: 0, minor: 0, patch: 0, current: 0 };
+        outdated.forEach((d) => { counts[d.worstSeverity] = (counts[d.worstSeverity] || 0) + 1; });
+        counts.current = totalShared - outdated.length;
+
+        const donut = buildDonutSVG(counts, totalShared);
+
+        const statPills = [
+          counts.major ? `<span class="text-[#ef4444]">${counts.major} major</span>` : '',
+          counts.minor ? `<span class="text-[#eab308]">${counts.minor} minor</span>` : '',
+          counts.patch ? `<span class="text-[#3b82f6]">${counts.patch} patch</span>` : '',
+          `<span class="text-[#22c55e]">${counts.current} current</span>`,
+        ].filter(Boolean).join('');
+
+        const warningHTML = warnings.length
+          ? `<div class="px-5 py-2 text-[11px] text-[#eab308] border-b border-[rgba(255,255,255,0.04)]">Could not load: ${warnings.join(', ')}</div>`
+          : '';
+
+        const cards = outdated.map((d) => {
+          const color = COLORS[d.worstSeverity] || '#505058';
+          const appRows = d.perApp.map((a) => `
+            <div class="app-version-row">
+              <span class="text-muted">${a.label}</span>
+              <div class="flex items-center gap-2">
+                <span class="text-text-secondary font-mono">${a.current || '–'}</span>
+                <span class="severity-dot" style="background:${COLORS[a.severity]}"></span>
+              </div>
+            </div>
+          `).join('');
+
+          return `
+            <div class="mobile-dep-card" style="--severity-color:${color}">
+              <div class="flex items-start justify-between mb-2">
+                <span class="text-[12px] text-text-primary font-semibold font-mono truncate">${d.name}</span>
+                <span class="staleness-badge staleness-${d.worstSeverity} ml-2 flex-shrink-0">${d.worstSeverity[0].toUpperCase() + d.worstSeverity.slice(1)}</span>
+              </div>
+              <div class="text-[10px] text-muted mb-3">latest <span class="text-text-secondary">${d.latest || '?'}</span></div>
+              <div>${appRows}</div>
+            </div>
+          `;
+        }).join('');
+
+        if (outdated.length === 0) {
+          container.innerHTML = `
+            ${warningHTML}
+            <div class="flex items-center gap-6 px-5 py-5">
+              ${donut}
+              <div class="text-[12px]">
+                <div class="text-text-primary font-medium mb-1">${totalShared} shared dependencies</div>
+                <div class="text-[#22c55e]">All up to date across ${repoCount} apps</div>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = `
+          ${warningHTML}
+          <div class="flex items-center gap-6 px-5 py-5 border-b border-[rgba(255,255,255,0.04)]">
+            ${donut}
+            <div>
+              <div class="text-[12px] text-text-primary font-medium mb-2">${totalShared} shared across ${repoCount} apps</div>
+              <div class="flex flex-wrap gap-3 text-[11px]">${statPills}</div>
+            </div>
+          </div>
+          <div class="mobile-dep-grid">${cards}</div>
+        `;
+      }
+
       // ── Init ──
       document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -344,6 +596,7 @@
           setToken(json.token);
           showApp();
           await loadProjects();
+          loadMobileAppsSection();
         } catch {
           errEl.textContent = 'Could not reach server';
         } finally {
@@ -358,6 +611,7 @@
 
       document.getElementById('repo-select').addEventListener('change', runCheck);
       document.getElementById('refresh-btn').addEventListener('click', runCheck);
+      document.getElementById('mobile-refresh-btn').addEventListener('click', loadMobileAppsSection);
 
       document.addEventListener('DOMContentLoaded', async () => {
         if (IS_LOCAL) {
@@ -365,6 +619,7 @@
           showApp();
           try {
             await loadProjects();
+            loadMobileAppsSection();
           } catch (e) {
             document.getElementById('repo-select').innerHTML = '<option value="">API unavailable (deploy worker)</option>';
           }
@@ -373,6 +628,7 @@
         if (isTokenValid()) {
           showApp();
           await loadProjects();
+          loadMobileAppsSection();
         } else {
           clearToken();
           showLogin();
