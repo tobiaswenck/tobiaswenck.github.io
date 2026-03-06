@@ -528,12 +528,12 @@
           ...(pkg.dependencies || {}),
           ...(pkg.devDependencies || {}),
         }));
-        const firstDeps = allDepMaps[0];
+        const allNames = new Set(allDepMaps.flatMap(m => Object.keys(m)));
         const shared = {};
-        for (const [name, version] of Object.entries(firstDeps)) {
-          if (allDepMaps.every(deps => deps[name] === version)) {
-            shared[name] = version;
-          }
+        for (const name of allNames) {
+          const versions = allDepMaps.map(m => m[name]).filter(Boolean);
+          if (versions.length !== allDepMaps.length) continue;
+          shared[name] = versions;
         }
         return shared;
       }
@@ -732,9 +732,11 @@
           const verRes = await workerFetch('/npm-versions', { packages: names });
           const latestList = await verRes.json();
           const report = latestList.map(({ name, latest }) => {
-            const current = shared[name];
-            const s = staleness(current, latest);
-            return { name, current, latest, ...s };
+            const versions = shared[name];
+            const unique = [...new Set(versions)];
+            const display = unique.length === 1 ? unique[0] : unique.join(' / ');
+            const s = staleness(versions[0], latest);
+            return { name, current: display, latest, versions, ...s };
           });
           const sevOrder = { major: 0, minor: 1, patch: 2, current: 3 };
           report.sort((a, b) => (sevOrder[a.severity] ?? 4) - (sevOrder[b.severity] ?? 4) || a.name.localeCompare(b.name));
