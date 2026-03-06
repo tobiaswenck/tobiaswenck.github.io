@@ -80,42 +80,78 @@
       .skeleton { background: rgba(255,255,255,0.04); border-radius: 4px; animation: skeleton-pulse 1.5s ease-in-out infinite; }
       @keyframes skeleton-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
 
-      .mobile-dep-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-        padding: 16px;
+      .heatmap-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 12px;
       }
-      @media (max-width: 640px) { .mobile-dep-grid { grid-template-columns: 1fr; } }
+      .heatmap-table th {
+        font-size: 10px;
+        font-weight: 500;
+        color: #7e7e86;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 8px 6px;
+        text-align: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        white-space: nowrap;
+      }
+      .heatmap-table th:first-child { text-align: left; padding-left: 16px; }
+      .heatmap-table th:last-child { text-align: right; padding-right: 16px; }
+      .heatmap-table th:nth-last-child(2) { text-align: right; padding-right: 4px; }
 
-      .mobile-dep-card {
-        background: #19191c;
-        border: 1px solid rgba(255, 255, 255, 0.04);
-        border-left: 3px solid var(--severity-color, #505058);
-        border-radius: 8px;
-        padding: 12px 14px;
-        transition: background 0.15s ease;
+      .heatmap-row td {
+        padding: 7px 6px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        vertical-align: middle;
+        text-align: center;
       }
-      .mobile-dep-card:hover { background: #1e1e22; }
+      .heatmap-row:last-child td { border-bottom: none; }
+      .heatmap-row:hover td { background: rgba(255, 255, 255, 0.02); }
 
-      .app-version-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        padding: 3px 0;
-        font-size: 11px;
+      .heatmap-row td:first-child {
+        text-align: left;
+        padding-left: 16px;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .app-version-row + .app-version-row {
-        border-top: 1px solid rgba(255, 255, 255, 0.03);
-      }
+      .heatmap-row td:last-child { text-align: right; padding-right: 16px; }
+      .heatmap-row td:nth-last-child(2) { text-align: right; padding-right: 4px; }
 
-      .severity-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        flex-shrink: 0;
+      .heatmap-cell {
+        position: relative;
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        cursor: default;
+        transition: transform 0.1s ease, box-shadow 0.15s ease;
       }
+      .heatmap-cell:hover {
+        transform: scale(1.25);
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.08);
+      }
+      .heatmap-cell .hm-tip {
+        position: absolute;
+        bottom: calc(100% + 6px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1e1e22;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 10px;
+        color: #ededef;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.12s ease;
+        z-index: 10;
+      }
+      .heatmap-cell:hover .hm-tip { opacity: 1; }
 
       .donut-track { fill: none; stroke: rgba(255,255,255,0.06); }
       .donut-segment { fill: none; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
@@ -521,30 +557,6 @@
           ? `<div class="px-5 py-2 text-[11px] text-[#eab308] border-b border-[rgba(255,255,255,0.04)]">Could not load: ${warnings.join(', ')}</div>`
           : '';
 
-        const cards = outdated.map((d) => {
-          const color = COLORS[d.worstSeverity] || '#505058';
-          const appRows = d.perApp.map((a) => `
-            <div class="app-version-row">
-              <span class="text-muted">${a.label}</span>
-              <div class="flex items-center gap-2">
-                <span class="text-text-secondary font-mono">${a.current || '–'}</span>
-                <span class="severity-dot" style="background:${COLORS[a.severity]}"></span>
-              </div>
-            </div>
-          `).join('');
-
-          return `
-            <div class="mobile-dep-card" style="--severity-color:${color}">
-              <div class="flex items-start justify-between mb-2">
-                <span class="text-[12px] text-text-primary font-semibold font-mono truncate">${d.name}</span>
-                <span class="staleness-badge staleness-${d.worstSeverity} ml-2 flex-shrink-0">${d.worstSeverity[0].toUpperCase() + d.worstSeverity.slice(1)}</span>
-              </div>
-              <div class="text-[10px] text-muted mb-3">latest <span class="text-text-secondary">${d.latest || '?'}</span></div>
-              <div>${appRows}</div>
-            </div>
-          `;
-        }).join('');
-
         if (outdated.length === 0) {
           container.innerHTML = `
             ${warningHTML}
@@ -559,6 +571,27 @@
           return;
         }
 
+        const appLabels = outdated[0].perApp.map((a) => a.label);
+
+        const headerCells = appLabels.map((l) => `<th>${l}</th>`).join('');
+
+        const rows = outdated.map((d) => {
+          const cells = d.perApp.map((a) => {
+            const bg = COLORS[a.severity] || '#505058';
+            const opacity = a.severity === 'current' ? '0.25' : '1';
+            return `<td><span class="heatmap-cell" style="background:${bg};opacity:${opacity}"><span class="hm-tip">${a.label}: ${a.current || '–'}</span></span></td>`;
+          }).join('');
+
+          const badge = `<span class="staleness-badge staleness-${d.worstSeverity}">${d.worstSeverity[0].toUpperCase() + d.worstSeverity.slice(1)}</span>`;
+
+          return `<tr class="heatmap-row">
+            <td class="text-text-primary font-mono">${d.name}</td>
+            ${cells}
+            <td class="text-muted-light font-mono text-[11px]">${d.latest || '–'}</td>
+            <td>${badge}</td>
+          </tr>`;
+        }).join('');
+
         container.innerHTML = `
           ${warningHTML}
           <div class="flex items-center gap-6 px-5 py-5 border-b border-[rgba(255,255,255,0.04)]">
@@ -568,7 +601,15 @@
               <div class="flex flex-wrap gap-3 text-[11px]">${statPills}</div>
             </div>
           </div>
-          <div class="mobile-dep-grid">${cards}</div>
+          <table class="heatmap-table">
+            <thead><tr>
+              <th>Package</th>
+              ${headerCells}
+              <th>Latest</th>
+              <th></th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
         `;
       }
 
