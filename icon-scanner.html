@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Icon Scanner</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { 'geist': ['"Geist Mono"', 'monospace'] },
+            colors: {
+              'dash-bg': '#0b0b0d',
+              'surface': '#141416',
+              'surface-hover': '#19191c',
+              'border': 'rgba(255, 255, 255, 0.06)',
+              'muted': '#505058',
+              'muted-light': '#7e7e86',
+              'text-primary': '#ededef',
+              'text-secondary': '#a0a0a8',
+            },
+          },
+        },
+      }
+    </script>
+
+    <style>
+      body { scrollbar-width: none; }
+      body::-webkit-scrollbar { display: none; }
+
+      .dash-card {
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+      }
+
+      #login-overlay {
+        position: fixed; inset: 0; z-index: 100;
+        background: #0b0b0d;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #login-overlay.hidden { display: none; }
+      #login-box input {
+        background: #0e0e10;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      #login-box input:focus { border-color: rgba(255, 255, 255, 0.12); outline: none; }
+
+      .skeleton { background: rgba(255,255,255,0.04); border-radius: 4px; animation: skeleton-pulse 1.5s ease-in-out infinite; }
+      @keyframes skeleton-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+      /* Scan lanes */
+      .scan-lane { display: flex; align-items: center; gap: 12px; }
+      .scan-track {
+        flex: 1; height: 3px; border-radius: 2px;
+        background: rgba(255, 255, 255, 0.04);
+        position: relative; overflow: hidden;
+      }
+      .scan-sweep {
+        position: absolute; top: 0; bottom: 0; left: 0; width: 35%;
+        background: linear-gradient(90deg, transparent, rgba(94, 106, 210, 0.7), transparent);
+        border-radius: 2px;
+        animation: scan-sweep-anim 1.4s ease-in-out infinite;
+      }
+      @keyframes scan-sweep-anim {
+        0% { transform: translateX(-120%); }
+        100% { transform: translateX(380%); }
+      }
+      .scan-fill {
+        position: absolute; inset: 0;
+        background: rgba(34, 197, 94, 0.6);
+        border-radius: 2px;
+        transform: scaleX(0); transform-origin: left;
+      }
+
+      /* Icon grid — horizontal scroll, 2 rows */
+      .icon-scroll-container {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        cursor: grab;
+      }
+      .icon-scroll-container::-webkit-scrollbar { display: none; }
+      .icon-scroll-container:active { cursor: grabbing; }
+
+      .icon-grid {
+        display: grid;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(2, 1fr);
+        gap: 8px;
+        padding: 4px 0;
+        width: max-content;
+      }
+
+      .icon-card {
+        width: 88px;
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        padding: 12px 8px 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        transition: border-color 0.2s, background 0.2s;
+        position: relative;
+      }
+      .icon-card:hover {
+        border-color: rgba(255, 255, 255, 0.12);
+        background: #19191c;
+      }
+      .icon-card svg,
+      .icon-card img {
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+      }
+      .icon-card .icon-name {
+        font-size: 8px;
+        color: #7e7e86;
+        text-align: center;
+        word-break: break-all;
+        line-height: 1.2;
+        max-height: 2.4em;
+        overflow: hidden;
+      }
+
+      .dupe-badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: rgba(234, 179, 8, 0.2);
+        color: #eab308;
+        font-size: 8px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Search */
+      #icon-search {
+        background: #0e0e10;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: border-color 0.3s ease;
+      }
+      #icon-search:focus {
+        border-color: rgba(255, 255, 255, 0.12);
+        outline: none;
+      }
+    </style>
+  </head>
+
+  <body class="font-geist bg-dash-bg text-text-primary min-h-screen overflow-x-hidden">
+
+    <div id="login-overlay">
+      <div id="login-box" class="w-full max-w-[340px] px-6">
+        <h1 class="text-2xl font-semibold tracking-tight mb-8 text-center">Icon Scanner</h1>
+        <form id="login-form" class="flex flex-col gap-3">
+          <input id="login-password" type="password" autocomplete="current-password"
+            placeholder="Password"
+            class="h-10 rounded-lg px-4 text-[13px] text-text-primary placeholder-muted focus:outline-none w-full">
+          <button type="submit" id="login-btn"
+            class="h-10 rounded-lg text-[13px] text-muted-light cursor-pointer w-full border border-[rgba(255,255,255,0.06)] hover:bg-surface-hover">
+            Sign in
+          </button>
+          <p id="login-error" class="text-[11px] text-center text-[#F26F60] min-h-[18px]">&nbsp;</p>
+        </form>
+      </div>
+    </div>
+
+    <main class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16 mx-auto" style="max-width: 1100px; display: none;">
+
+      <header class="flex items-start justify-between mb-10">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">Icon Scanner</h1>
+          <p class="text-[11px] text-muted mt-1">SVG icons across mobile fleet repositories</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="dashboard-alternative.html" class="text-[11px] text-muted-light hover:text-text-secondary no-underline">
+            ← Dashboard
+          </a>
+          <button id="logout-btn" title="Logout"
+            class="h-8 w-8 rounded-lg flex items-center justify-center text-muted-light cursor-pointer border border-[rgba(255,255,255,0.06)] hover:bg-surface-hover">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M16 17l5-5m0 0l-5-5m5 5H9M9 3H7.8C6.12 3 5.28 3 4.64 3.33C4.07 3.61 3.61 4.07 3.33 4.64C3 5.28 3 6.12 3 7.8v8.4C3 17.88 3 18.72 3.33 19.36c0.28 0.57 0.74 1.03 1.31 1.31C4.96 19 5.8 19 7.48 19H9"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Search -->
+      <div class="mb-6">
+        <input id="icon-search" type="text" autocomplete="off" placeholder="Filter icons by name..."
+          class="w-full max-w-md h-10 rounded-lg px-4 text-[13px] text-text-primary placeholder-muted">
+      </div>
+
+      <!-- Duplicate summary -->
+      <div id="dupe-summary" class="mb-6" style="display: none;">
+        <div class="dash-card px-5 py-3 flex items-center gap-3">
+          <div class="w-2 h-2 rounded-full" style="background: #eab308;"></div>
+          <span class="text-[12px] text-text-secondary" id="dupe-summary-text"></span>
+        </div>
+      </div>
+
+      <!-- Scan card -->
+      <div id="scan-card" class="dash-card p-5 mb-8" style="display: none;">
+        <div class="text-[10px] text-muted uppercase tracking-wider mb-5">Scanning Repositories</div>
+        <div class="space-y-4" id="scan-lanes"></div>
+        <div class="mt-5 pt-4 border-t border-[rgba(255,255,255,0.04)]">
+          <div class="text-[11px] text-muted-light" id="scan-status">Initializing...</div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="results" style="display: none;"></div>
+
+      <!-- Error -->
+      <div id="scan-error" style="display: none;"></div>
+
+    </main>
+
+    <script>
+      const WORKER_URL = 'https://linear-proxy.tobiaswenck.workers.dev';
+      const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
+      const TOKEN_KEY = 'dash_token';
+      function getToken() { return localStorage.getItem(TOKEN_KEY); }
+      function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+      function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+      function decodePayload(token) {
+        try {
+          const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          return JSON.parse(atob(base64));
+        } catch { return null; }
+      }
+      function isTokenValid() {
+        const token = getToken();
+        if (!token) return false;
+        const p = decodePayload(token);
+        return p?.exp && p.exp > Math.floor(Date.now() / 1000);
+      }
+
+      function showApp() {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.querySelector('main').style.display = '';
+      }
+      function showLogin(msg) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+        document.querySelector('main').style.display = 'none';
+        if (msg) document.getElementById('login-error').textContent = msg;
+      }
+
+      async function workerFetch(path, body) {
+        const token = getToken();
+        const res = await fetch(`${WORKER_URL}${path}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(body || {}),
+        });
+        if (res.status === 401) {
+          clearToken();
+          showLogin('Session expired. Please sign in again.');
+          throw new Error('Unauthorized');
+        }
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || `HTTP ${res.status}`);
+        }
+        return res;
+      }
+
+      // ── Repos ──
+      const ICON_REPOS = [
+        { path: 'Rail-Network/gps-s/mobileapp', label: 'GPS-S', color: '#5E6AD2' },
+        { path: 'Rail-Network/report/mobileapp', label: 'Report', color: '#E24329' },
+        { path: 'Rail-Network/komreg/komregapp', label: 'KomReg', color: '#3b82f6' },
+        { path: 'Rail-Network/fahrplan-app', label: 'Fahrplan', color: '#22c55e' },
+      ];
+      const ICON_PATH = 'public/icons';
+
+      let allProjects = [];
+      let repoData = [];
+      let dupeMap = {};
+
+      // ── Match repos to project IDs ──
+      function matchProjects(projects) {
+        return ICON_REPOS.map(repo => {
+          const p = projects.find(pr =>
+            pr.path === repo.path ||
+            pr.path.endsWith('/' + repo.path) ||
+            pr.path.includes(repo.path)
+          );
+          return p ? { ...repo, id: p.id, branch: p.defaultBranch || 'main' } : null;
+        }).filter(Boolean);
+      }
+
+      // ── Scan UI ──
+      function buildScanLanes() {
+        document.getElementById('scan-lanes').innerHTML = ICON_REPOS.map((repo, i) => `
+          <div class="scan-lane" id="scan-lane-${i}">
+            <span class="text-[11px] text-muted-light truncate" style="width: 80px;">${repo.label}</span>
+            <div class="scan-track">
+              <div class="scan-sweep" id="scan-sweep-${i}"></div>
+              <div class="scan-fill" id="scan-fill-${i}"></div>
+            </div>
+            <svg id="scan-check-${i}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" style="opacity:0;"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        `).join('');
+      }
+
+      function markLaneDone(i) {
+        const sweep = document.getElementById(`scan-sweep-${i}`);
+        const fill = document.getElementById(`scan-fill-${i}`);
+        const check = document.getElementById(`scan-check-${i}`);
+        if (sweep) sweep.style.display = 'none';
+        if (fill) gsap.to(fill, { scaleX: 1, duration: 0.4, ease: 'power2.out' });
+        if (check) gsap.to(check, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2)', delay: 0.15 });
+      }
+
+      function updateStatus(text) {
+        const el = document.getElementById('scan-status');
+        if (el) el.textContent = text;
+      }
+
+      // ── Fetch tree listing ──
+      async function fetchIconTree(project) {
+        const res = await workerFetch('/gitlab/tree', {
+          projectId: project.id,
+          path: ICON_PATH,
+          ref: project.branch,
+        });
+        const entries = await res.json();
+        return entries.filter(e => e.type === 'blob' && e.name.endsWith('.svg'));
+      }
+
+      // ── Fetch SVG content (batched) ──
+      async function fetchSvgContent(project, filePath) {
+        const res = await workerFetch('/gitlab/file', {
+          projectId: project.id,
+          filePath,
+          ref: project.branch,
+        });
+        return res.text();
+      }
+
+      async function fetchAllSvgs(project, entries) {
+        const results = [];
+        const concurrency = 5;
+
+        for (let i = 0; i < entries.length; i += concurrency) {
+          const batch = entries.slice(i, i + concurrency);
+          const svgs = await Promise.all(
+            batch.map(async (entry) => {
+              try {
+                const content = await fetchSvgContent(project, entry.path);
+                return { name: entry.name, path: entry.path, svg: content };
+              } catch {
+                return { name: entry.name, path: entry.path, svg: null };
+              }
+            })
+          );
+          results.push(...svgs);
+        }
+        return results;
+      }
+
+      // ── Duplicate detection ──
+      function computeDupes(repoData) {
+        const nameMap = {};
+        for (const rd of repoData) {
+          for (const icon of rd.icons) {
+            const key = icon.name.toLowerCase();
+            if (!nameMap[key]) nameMap[key] = [];
+            nameMap[key].push(rd.label);
+          }
+        }
+        const dupes = {};
+        for (const [name, repos] of Object.entries(nameMap)) {
+          if (repos.length > 1) dupes[name] = repos;
+        }
+        return dupes;
+      }
+
+      // ── Render results ──
+      function renderResults() {
+        const container = document.getElementById('results');
+        const searchVal = document.getElementById('icon-search').value.toLowerCase().trim();
+
+        let html = '';
+        for (const rd of repoData) {
+          const filtered = searchVal
+            ? rd.icons.filter(ic => ic.name.toLowerCase().includes(searchVal))
+            : rd.icons;
+
+          html += `
+            <section class="mb-8">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-2 h-2 rounded-full" style="background: ${rd.color};"></div>
+                <h2 class="text-[14px] font-medium text-text-primary">${rd.label}</h2>
+                <span class="text-[11px] text-muted">${filtered.length} icon${filtered.length !== 1 ? 's' : ''}</span>
+              </div>
+              ${filtered.length === 0
+                ? '<div class="text-[12px] text-muted pl-5">No icons found.</div>'
+                : `<div class="icon-scroll-container" data-scroll-drag>
+                    <div class="icon-grid">
+                      ${filtered.map(ic => {
+                        const key = ic.name.toLowerCase();
+                        const isDupe = dupeMap[key];
+                        const dupeCount = isDupe ? isDupe.length : 0;
+                        const svgHtml = ic.svg
+                          ? ic.svg.replace(/<svg/, '<svg style="width:28px;height:28px;color:#ededef;" ')
+                          : '<div class="w-7 h-7 rounded bg-[rgba(255,255,255,0.04)]"></div>';
+                        return `
+                          <div class="icon-card" title="${ic.name}${isDupe ? '\nAlso in: ' + isDupe.filter(r => r !== rd.label).join(', ') : ''}">
+                            ${dupeCount > 1 ? `<div class="dupe-badge">${dupeCount}</div>` : ''}
+                            <div class="flex items-center justify-center" style="width:28px;height:28px;">${svgHtml}</div>
+                            <div class="icon-name">${ic.name.replace('.svg', '')}</div>
+                          </div>`;
+                      }).join('')}
+                    </div>
+                  </div>`
+              }
+            </section>`;
+        }
+
+        container.innerHTML = html;
+        container.style.display = '';
+
+        // Duplicate summary
+        const dupeCount = Object.keys(dupeMap).length;
+        const dupeEl = document.getElementById('dupe-summary');
+        if (dupeCount > 0 && !searchVal) {
+          document.getElementById('dupe-summary-text').textContent =
+            `${dupeCount} icon${dupeCount !== 1 ? 's' : ''} found in multiple repositories`;
+          dupeEl.style.display = '';
+        } else {
+          dupeEl.style.display = 'none';
+        }
+
+        initDragScroll();
+      }
+
+      // ── Drag-to-scroll ──
+      function initDragScroll() {
+        document.querySelectorAll('[data-scroll-drag]').forEach(el => {
+          let isDown = false, startX, scrollLeft;
+          el.addEventListener('mousedown', e => {
+            isDown = true;
+            el.style.cursor = 'grabbing';
+            startX = e.pageX - el.offsetLeft;
+            scrollLeft = el.scrollLeft;
+          });
+          el.addEventListener('mouseleave', () => { isDown = false; el.style.cursor = 'grab'; });
+          el.addEventListener('mouseup', () => { isDown = false; el.style.cursor = 'grab'; });
+          el.addEventListener('mousemove', e => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - el.offsetLeft;
+            el.scrollLeft = scrollLeft - (x - startX);
+          });
+        });
+      }
+
+      // ── Main scan ──
+      async function runScan() {
+        const scanCard = document.getElementById('scan-card');
+        const results = document.getElementById('results');
+        const errorEl = document.getElementById('scan-error');
+
+        scanCard.style.display = '';
+        results.style.display = 'none';
+        errorEl.style.display = 'none';
+
+        buildScanLanes();
+        gsap.fromTo(scanCard, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+
+        try {
+          updateStatus('Loading projects...');
+          const projRes = await workerFetch('/gitlab/projects');
+          allProjects = await projRes.json();
+          const matched = matchProjects(allProjects);
+
+          if (matched.length === 0) {
+            throw new Error('Could not find any mobile app repositories.');
+          }
+
+          updateStatus('Scanning icon directories...');
+          repoData = [];
+
+          for (let i = 0; i < matched.length; i++) {
+            const proj = matched[i];
+            const repoIdx = ICON_REPOS.findIndex(r => r.path === proj.path);
+            try {
+              updateStatus(`Scanning ${proj.label}...`);
+              const entries = await fetchIconTree(proj);
+              updateStatus(`Loading ${entries.length} icons from ${proj.label}...`);
+              const icons = await fetchAllSvgs(proj, entries);
+              repoData.push({ ...proj, icons });
+            } catch (err) {
+              repoData.push({ ...proj, icons: [], error: err.message });
+            }
+            if (repoIdx >= 0) markLaneDone(repoIdx);
+          }
+
+          dupeMap = computeDupes(repoData);
+
+          updateStatus('Complete');
+          await new Promise(r => setTimeout(r, 400));
+          await gsap.to(scanCard, { opacity: 0, height: 0, marginBottom: 0, padding: 0, duration: 0.4, ease: 'power2.inOut' });
+          scanCard.style.display = 'none';
+
+          renderResults();
+
+          gsap.fromTo('#results > section', { opacity: 0, y: 12 }, {
+            opacity: 1, y: 0, stagger: 0.1, duration: 0.4, ease: 'power2.out'
+          });
+
+        } catch (err) {
+          console.error('[IconScanner]', err);
+          await new Promise(r => setTimeout(r, 300));
+          await gsap.to(scanCard, { opacity: 0, height: 0, duration: 0.3, ease: 'power2.inOut' });
+          scanCard.style.display = 'none';
+          errorEl.style.display = '';
+          errorEl.innerHTML = `<div class="dash-card p-6 text-center text-[#F26F60] text-[12px]">${err.message || 'Scan failed.'}</div>`;
+        }
+      }
+
+      // ── Search ──
+      let searchTimeout;
+      document.getElementById('icon-search').addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          if (repoData.length > 0) renderResults();
+        }, 200);
+      });
+
+      // ── Auth ──
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('login-password').value;
+        const errEl = document.getElementById('login-error');
+        const btn = document.getElementById('login-btn');
+        if (!pw) { errEl.textContent = 'Enter a password'; return; }
+        btn.textContent = '...';
+        btn.disabled = true;
+        errEl.innerHTML = '&nbsp;';
+        try {
+          const res = await fetch(`${WORKER_URL}/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw }),
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok) {
+            errEl.textContent = json?.error || 'Authentication failed';
+            return;
+          }
+          setToken(json.token);
+          showApp();
+          runScan();
+        } catch {
+          errEl.textContent = 'Could not reach server';
+        } finally {
+          btn.textContent = 'Sign in';
+          btn.disabled = false;
+        }
+      });
+
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        if (!IS_LOCAL) { clearToken(); showLogin(); }
+      });
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        if (IS_LOCAL) {
+          console.info('%c[DEV]%c Auth bypassed locally', 'color:#eab308;font-weight:bold', 'color:inherit');
+          showApp();
+          try { await runScan(); } catch (e) {
+            document.getElementById('scan-error').style.display = '';
+            document.getElementById('scan-error').innerHTML =
+              '<div class="dash-card p-6 text-center text-muted text-[12px]">API unavailable locally (CORS).</div>';
+          }
+          return;
+        }
+        if (isTokenValid()) {
+          showApp();
+          runScan();
+        } else {
+          clearToken();
+          showLogin();
+        }
+      });
+    </script>
+  </body>
+</html>

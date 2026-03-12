@@ -10,6 +10,7 @@
  *   POST /youtrack      — proxy issue queries to YouTrack REST API (requires JWT)
  *   POST /gitlab        — proxy merge request queries to GitLab REST API (requires JWT)
  *   POST /gitlab/file   — fetch raw file from GitLab repo (requires JWT)
+ *   POST /gitlab/tree     — list files in a repository directory (requires JWT)
  *   POST /gitlab/projects — list projects (for discovering project IDs) (requires JWT)
  *   POST /npm-versions  — batch fetch latest versions from npm registry (requires JWT)
  *
@@ -407,9 +408,13 @@ async function handleGitLabFile(request, env) {
     return jsonError("Missing projectId or filePath", 400, env);
   }
 
-  if (!ALLOWED_FILE_PATHS.has(filePath)) {
+  const fileAllowed =
+    ALLOWED_FILE_PATHS.has(filePath) ||
+    (typeof filePath === "string" && filePath.endsWith(".svg"));
+
+  if (!fileAllowed) {
     return jsonError(
-      `File not allowed: ${filePath}. Allowed: ${[...ALLOWED_FILE_PATHS].join(", ")}`,
+      `File not allowed: ${filePath}. Allowed: ${[...ALLOWED_FILE_PATHS].join(", ")}, *.svg`,
       403,
       env,
     );
@@ -435,13 +440,88 @@ async function handleGitLabFile(request, env) {
   }
 
   const text = await res.text();
+  const contentType = filePath.endsWith(".svg")
+    ? "image/svg+xml"
+    : "application/json";
   return new Response(text, {
     status: 200,
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": contentType,
       ...corsHeaders(env),
     },
   });
+}
+
+// ── GitLab repository tree (for listing files in a directory) ──
+
+const ALLOWED_TREE_PREFIXES = ["public/icons"];
+
+async function handleGitLabTree(request, env) {
+  const claims = await authenticate(request, env);
+  if (!claims) {
+    return jsonError("Unauthorized", 401, env);
+  }
+
+  if (!env.GITLAB_TOKEN) {
+    return jsonError(
+      "Worker misconfigured: GITLAB_TOKEN secret not set",
+      500,
+      env,
+    );
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Invalid JSON body", 400, env);
+  }
+
+  const { projectId, path, ref } = body;
+  if (!projectId || !path || typeof path !== "string") {
+    return jsonError("Missing projectId or path", 400, env);
+  }
+
+  if (!ALLOWED_TREE_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix + "/"))) {
+    return jsonError(
+      `Path not allowed: ${path}. Allowed prefixes: ${ALLOWED_TREE_PREFIXES.join(", ")}`,
+      403,
+      env,
+    );
+  }
+
+  const allEntries = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    const url = `${GITLAB_BASE}/api/v4/projects/${encodeURIComponent(projectId)}/repository/tree?path=${encodeURIComponent(path)}&per_page=${perPage}&page=${page}&ref=${encodeURIComponent(ref || "main")}`;
+
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "PRIVATE-TOKEN": env.GITLAB_TOKEN,
+      },
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return jsonResponse(
+        { error: `GitLab ${res.status}`, detail: errText },
+        res.status,
+        env,
+      );
+    }
+
+    const entries = await res.json();
+    allEntries.push(...entries);
+
+    if (entries.length < perPage) break;
+    page++;
+    if (page > 20) break;
+  }
+
+  return jsonResponse(allEntries, 200, env);
 }
 
 // ── GitLab projects list (for discovering project IDs) ──
@@ -563,6 +643,10 @@ export default {
 
     if (url.pathname === "/gitlab/file") {
       return handleGitLabFile(request, env);
+    }
+
+    if (url.pathname === "/gitlab/tree") {
+      return handleGitLabTree(request, env);
     }
 
     if (url.pathname === "/gitlab/projects") {
