@@ -410,11 +410,12 @@ async function handleGitLabFile(request, env) {
 
   const fileAllowed =
     ALLOWED_FILE_PATHS.has(filePath) ||
-    (typeof filePath === "string" && filePath.endsWith(".svg"));
+    (typeof filePath === "string" &&
+      (filePath.endsWith(".svg") || filePath.endsWith(".vue")));
 
   if (!fileAllowed) {
     return jsonError(
-      `File not allowed: ${filePath}. Allowed: ${[...ALLOWED_FILE_PATHS].join(", ")}, *.svg`,
+      `File not allowed: ${filePath}. Allowed: ${[...ALLOWED_FILE_PATHS].join(", ")}, *.svg, *.vue`,
       403,
       env,
     );
@@ -442,7 +443,9 @@ async function handleGitLabFile(request, env) {
   const text = await res.text();
   const contentType = filePath.endsWith(".svg")
     ? "image/svg+xml"
-    : "application/json";
+    : filePath.endsWith(".vue")
+      ? "text/plain"
+      : "application/json";
   return new Response(text, {
     status: 200,
     headers: {
@@ -454,7 +457,7 @@ async function handleGitLabFile(request, env) {
 
 // ── GitLab repository tree (for listing files in a directory) ──
 
-const ALLOWED_TREE_PREFIXES = ["public/icons"];
+const ALLOWED_TREE_PREFIXES = ["public/icons", "src"];
 
 async function handleGitLabTree(request, env) {
   const claims = await authenticate(request, env);
@@ -477,7 +480,7 @@ async function handleGitLabTree(request, env) {
     return jsonError("Invalid JSON body", 400, env);
   }
 
-  const { projectId, path, ref } = body;
+  const { projectId, path, ref, recursive } = body;
   if (!projectId || !path || typeof path !== "string") {
     return jsonError("Missing projectId or path", 400, env);
   }
@@ -495,7 +498,7 @@ async function handleGitLabTree(request, env) {
   const perPage = 100;
 
   while (true) {
-    const url = `${GITLAB_BASE}/api/v4/projects/${encodeURIComponent(projectId)}/repository/tree?path=${encodeURIComponent(path)}&per_page=${perPage}&page=${page}&ref=${encodeURIComponent(ref || "main")}`;
+    const url = `${GITLAB_BASE}/api/v4/projects/${encodeURIComponent(projectId)}/repository/tree?path=${encodeURIComponent(path)}&per_page=${perPage}&page=${page}&ref=${encodeURIComponent(ref || "main")}${recursive ? "&recursive=true" : ""}`;
 
     const res = await fetch(url, {
       headers: {

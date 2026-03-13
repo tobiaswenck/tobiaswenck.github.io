@@ -1,0 +1,1260 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vue Mapper</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { 'geist': ['"Geist Mono"', 'monospace'] },
+            colors: {
+              'dash-bg': '#0b0b0d',
+              'surface': '#141416',
+              'surface-hover': '#19191c',
+              'border': 'rgba(255, 255, 255, 0.06)',
+              'muted': '#505058',
+              'muted-light': '#7e7e86',
+              'text-primary': '#ededef',
+              'text-secondary': '#a0a0a8',
+            },
+          },
+        },
+      }
+    </script>
+
+    <style>
+      body { scrollbar-width: none; }
+      body::-webkit-scrollbar { display: none; }
+
+      .dash-card {
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+      }
+
+      #login-overlay {
+        position: fixed; inset: 0; z-index: 100;
+        background: #0b0b0d;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #login-overlay.hidden { display: none; }
+      #login-box input {
+        background: #0e0e10;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      #login-box input:focus { border-color: rgba(255, 255, 255, 0.12); outline: none; }
+
+      .skeleton { background: rgba(255,255,255,0.04); border-radius: 4px; animation: skeleton-pulse 1.5s ease-in-out infinite; }
+      @keyframes skeleton-pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+      .scan-lane { display: flex; align-items: center; gap: 12px; }
+      .scan-track {
+        flex: 1; height: 3px; border-radius: 2px;
+        background: rgba(255, 255, 255, 0.04);
+        position: relative; overflow: hidden;
+      }
+      .scan-sweep {
+        position: absolute; top: 0; bottom: 0; left: 0; width: 35%;
+        background: linear-gradient(90deg, transparent, rgba(94, 106, 210, 0.7), transparent);
+        border-radius: 2px;
+        animation: scan-sweep-anim 1.4s ease-in-out infinite;
+      }
+      @keyframes scan-sweep-anim {
+        0% { transform: translateX(-120%); }
+        100% { transform: translateX(380%); }
+      }
+      .scan-fill {
+        position: absolute; inset: 0;
+        background: rgba(34, 197, 94, 0.6);
+        border-radius: 2px;
+        transform: scaleX(0); transform-origin: left;
+      }
+
+      .repo-card {
+        background: #141416;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        padding: 28px;
+        position: relative;
+        overflow: hidden;
+        transition: border-color 0.25s, transform 0.2s, box-shadow 0.25s;
+        cursor: pointer;
+      }
+      .repo-card:hover {
+        border-color: rgba(255, 255, 255, 0.12);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      }
+      .repo-card .card-glow {
+        position: absolute;
+        top: -60%; left: -20%;
+        width: 140%; height: 140%;
+        border-radius: 50%;
+        opacity: 0.04;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      .repo-card:hover .card-glow { opacity: 0.08; }
+
+      .stat-pill {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 8px;
+        padding: 10px 14px;
+      }
+
+      .summary-stat {
+        text-align: center;
+        padding: 0 24px;
+      }
+      .summary-stat + .summary-stat {
+        border-left: 1px solid rgba(255,255,255,0.06);
+      }
+
+      /* Detail view */
+      #detail-view {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #0b0b0d;
+        z-index: 50;
+      }
+
+      .detail-sidebar {
+        width: 280px;
+        background: #101012;
+        border-right: 1px solid rgba(255,255,255,0.06);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .detail-panel {
+        width: 320px;
+        background: #101012;
+        border-left: 1px solid rgba(255,255,255,0.06);
+        overflow-y: auto;
+        scrollbar-width: none;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+      }
+      .detail-panel::-webkit-scrollbar { display: none; }
+      .detail-panel.collapsed {
+        transform: translateX(100%);
+        opacity: 0;
+        pointer-events: none;
+        position: absolute;
+        right: 0;
+      }
+
+      .sidebar-item {
+        padding: 8px 16px;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: background 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .sidebar-item:hover { background: rgba(255,255,255,0.04); }
+      .sidebar-item.active { background: rgba(94, 106, 210, 0.15); }
+
+      .sidebar-search {
+        background: #0e0e10;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: border-color 0.3s ease;
+      }
+      .sidebar-search:focus {
+        border-color: rgba(255, 255, 255, 0.12);
+        outline: none;
+      }
+
+      .group-header {
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #505058;
+        padding: 12px 16px 4px;
+      }
+
+      .panel-section {
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+      }
+      .panel-section:last-child { border-bottom: none; }
+
+      .panel-label {
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #505058;
+        margin-bottom: 8px;
+      }
+
+      .panel-item {
+        font-size: 12px;
+        color: #a0a0a8;
+        padding: 3px 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .panel-item .fn-dot {
+        width: 4px; height: 4px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .legend-box {
+        position: absolute;
+        bottom: 16px;
+        left: 296px;
+        background: rgba(20, 20, 22, 0.92);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 10px;
+        padding: 14px 18px;
+        z-index: 10;
+        backdrop-filter: blur(8px);
+      }
+      .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 10px;
+        color: #7e7e86;
+        padding: 2px 0;
+      }
+      .legend-swatch {
+        width: 10px; height: 10px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+
+      .graph-tooltip {
+        position: absolute;
+        pointer-events: none;
+        background: rgba(20, 20, 22, 0.95);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 11px;
+        color: #ededef;
+        z-index: 20;
+        backdrop-filter: blur(8px);
+        opacity: 0;
+        transition: opacity 0.15s;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+
+  <body class="font-geist bg-dash-bg text-text-primary min-h-screen overflow-x-hidden">
+
+    <div id="login-overlay">
+      <div id="login-box" class="w-full max-w-[340px] px-6">
+        <h1 class="text-2xl font-semibold tracking-tight mb-8 text-center">Vue Mapper</h1>
+        <form id="login-form" class="flex flex-col gap-3">
+          <input id="login-password" type="password" autocomplete="current-password"
+            placeholder="Password"
+            class="h-10 rounded-lg px-4 text-[13px] text-text-primary placeholder-muted focus:outline-none w-full">
+          <button type="submit" id="login-btn"
+            class="h-10 rounded-lg text-[13px] text-muted-light cursor-pointer w-full border border-[rgba(255,255,255,0.06)] hover:bg-surface-hover">
+            Sign in
+          </button>
+          <p id="login-error" class="text-[11px] text-center text-[#F26F60] min-h-[18px]">&nbsp;</p>
+        </form>
+      </div>
+    </div>
+
+    <!-- ─── Overview ─── -->
+    <main id="overview-view" class="min-h-screen flex flex-col px-6 sm:px-10 lg:px-16 py-16" style="display: none;">
+
+      <header class="flex items-start justify-between mb-10">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">Vue Mapper</h1>
+          <p class="text-[11px] text-muted mt-1">Component architecture across mobile fleet repositories</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="dashboard-alternative.html" class="text-[11px] text-muted-light hover:text-text-secondary no-underline">
+            ← Dashboard
+          </a>
+          <button id="logout-btn" title="Logout"
+            class="h-8 w-8 rounded-lg flex items-center justify-center text-muted-light cursor-pointer border border-[rgba(255,255,255,0.06)] hover:bg-surface-hover">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M16 17l5-5m0 0l-5-5m5 5H9M9 3H7.8C6.12 3 5.28 3 4.64 3.33C4.07 3.61 3.61 4.07 3.33 4.64C3 5.28 3 6.12 3 7.8v8.4C3 17.88 3 18.72 3.33 19.36c0.28 0.57 0.74 1.03 1.31 1.31C4.96 19 5.8 19 7.48 19H9"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Scan card -->
+      <div id="scan-card" class="dash-card p-5 mb-8" style="display: none;">
+        <div class="text-[10px] text-muted uppercase tracking-wider mb-5">Scanning Repositories</div>
+        <div class="space-y-4" id="scan-lanes"></div>
+        <div class="mt-5 pt-4 border-t border-[rgba(255,255,255,0.04)]">
+          <div class="text-[11px] text-muted-light" id="scan-status">Initializing...</div>
+        </div>
+      </div>
+
+      <!-- Summary bar -->
+      <div id="summary-bar" class="dash-card mb-8 py-5 flex items-center justify-center" style="display: none;">
+        <div class="summary-stat">
+          <div class="text-[22px] font-semibold tabular-nums text-text-primary" id="sum-components">0</div>
+          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Components</div>
+        </div>
+        <div class="summary-stat">
+          <div class="text-[22px] font-semibold tabular-nums text-text-primary" id="sum-functions">0</div>
+          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Functions</div>
+        </div>
+        <div class="summary-stat">
+          <div class="text-[22px] font-semibold tabular-nums text-text-primary" id="sum-relationships">0</div>
+          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Relationships</div>
+        </div>
+        <div class="summary-stat">
+          <div class="text-[22px] font-semibold tabular-nums text-text-primary" id="sum-repos">0</div>
+          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Repositories</div>
+        </div>
+      </div>
+
+      <!-- Repo cards grid -->
+      <div id="cards-grid" class="grid grid-cols-1 md:grid-cols-2 gap-5" style="display: none;"></div>
+
+      <!-- Error -->
+      <div id="scan-error" style="display: none;"></div>
+
+    </main>
+
+    <!-- ─── Detail View ─── -->
+    <div id="detail-view">
+      <div class="flex h-full">
+        <!-- Left sidebar -->
+        <div class="detail-sidebar">
+          <div class="p-4 border-b border-[rgba(255,255,255,0.06)]">
+            <button id="detail-back" class="flex items-center gap-2 text-[11px] text-muted-light hover:text-text-secondary cursor-pointer mb-3">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Back to Overview
+            </button>
+            <div class="text-[15px] font-semibold tracking-tight" id="detail-repo-name"></div>
+            <div class="text-[10px] text-muted mt-1" id="detail-repo-path"></div>
+          </div>
+          <div class="p-3">
+            <input id="component-search" type="text" autocomplete="off" placeholder="Search components..."
+              class="sidebar-search w-full h-8 rounded-lg px-3 text-[12px] text-text-primary placeholder-muted">
+          </div>
+          <div class="flex-1 overflow-y-auto px-2 pb-4" id="component-list" style="scrollbar-width: none;"></div>
+        </div>
+
+        <!-- Center graph -->
+        <div class="flex-1 relative" id="graph-container">
+          <svg id="graph-svg" width="100%" height="100%"></svg>
+          <div class="graph-tooltip" id="graph-tooltip"></div>
+          <!-- Legend -->
+          <div class="legend-box" id="graph-legend"></div>
+        </div>
+
+        <!-- Right panel -->
+        <div class="detail-panel collapsed" id="detail-panel">
+          <div class="p-5 border-b border-[rgba(255,255,255,0.06)]">
+            <div class="text-[14px] font-semibold text-text-primary" id="panel-name"></div>
+            <div class="text-[10px] text-muted mt-1 break-all" id="panel-path"></div>
+          </div>
+          <div id="panel-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function() {
+      const WORKER_URL = 'https://linear-proxy.tobiaswenck.workers.dev';
+      const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
+      const TOKEN_KEY = 'dash_token';
+      function getToken() { return localStorage.getItem(TOKEN_KEY); }
+      function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+      function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+      function decodePayload(token) {
+        try {
+          const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          return JSON.parse(atob(base64));
+        } catch { return null; }
+      }
+      function isTokenValid() {
+        const token = getToken();
+        if (!token) return false;
+        const p = decodePayload(token);
+        return p?.exp && p.exp > Math.floor(Date.now() / 1000);
+      }
+
+      function showApp() {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('overview-view').style.display = '';
+      }
+      function showLogin(msg) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+        document.getElementById('overview-view').style.display = 'none';
+        if (msg) document.getElementById('login-error').textContent = msg;
+      }
+
+      async function workerFetch(path, body) {
+        const token = getToken();
+        const res = await fetch(`${WORKER_URL}${path}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(body || {}),
+        });
+        if (res.status === 401) {
+          clearToken();
+          showLogin('Session expired. Please sign in again.');
+          throw new Error('Unauthorized');
+        }
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || `HTTP ${res.status}`);
+        }
+        return res;
+      }
+
+      // ── Repos ──
+      const FLEET_REPOS = [
+        { path: 'Rail-Network/gps-s/mobileapp', label: 'GPS-S', color: '#5E6AD2' },
+        { path: 'Rail-Network/report/mobileapp', label: 'Report', color: '#E24329' },
+        { path: 'Rail-Network/komreg/komregapp', label: 'KomReg', color: '#3b82f6' },
+        { path: 'Rail-Network/fahrplan-app', label: 'Fahrplan', color: '#22c55e' },
+      ];
+
+      const GROUP_COLORS = {
+        views:      '#5E6AD2',
+        pages:      '#5E6AD2',
+        components: '#a855f7',
+        layouts:    '#14b8a6',
+        composables:'#f59e0b',
+        other:      '#7e7e86',
+      };
+
+      let allRepoData = {};
+
+      function matchFleetProjects(projects) {
+        return FLEET_REPOS.map(repo => {
+          const p = projects.find(pr =>
+            pr.path === repo.path ||
+            pr.path.endsWith('/' + repo.path) ||
+            pr.path.includes(repo.path)
+          );
+          return p ? { ...repo, id: p.id, branch: p.defaultBranch || 'main' } : null;
+        }).filter(Boolean);
+      }
+
+      // ── Vue SFC Parser ──
+      function parseVueFile(content, filePath) {
+        const scriptMatch = content.match(/<script[^>]*>([\s\S]*?)<\/script>/);
+        const templateMatch = content.match(/<template>([\s\S]*?)<\/template>/);
+        const script = scriptMatch ? scriptMatch[1] : '';
+        const template = templateMatch ? templateMatch[1] : '';
+
+        const name = filePath.split('/').pop().replace('.vue', '');
+
+        const imports = [...script.matchAll(/import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g)]
+          .map(m => ({ name: m[1], source: m[2] }));
+
+        const componentImports = imports.filter(i =>
+          i.source.endsWith('.vue') ||
+          i.source.includes('/components/') ||
+          i.source.includes('/views/') ||
+          i.source.includes('/layouts/') ||
+          /^[A-Z]/.test(i.name)
+        );
+
+        const templateComponents = [...new Set(
+          [...template.matchAll(/<([A-Z][a-zA-Z0-9]+)/g)].map(m => m[1])
+        )];
+
+        const kebabComponents = [...new Set(
+          [...template.matchAll(/<([a-z]+-[a-z-]+)/g)]
+            .map(m => m[1])
+            .filter(t => !['transition-group', 'keep-alive', 'teleport', 'router-view', 'router-link'].includes(t))
+            .map(t => t.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(''))
+        )];
+
+        const allTemplateComponents = [...new Set([...templateComponents, ...kebabComponents])];
+
+        // Props
+        let props = [];
+        const propsWithDefaults = script.match(/defineProps\s*\(\s*\{([\s\S]*?)\}\s*\)/);
+        const propsGeneric = script.match(/defineProps\s*<\s*\{([\s\S]*?)\}\s*>/);
+        const propsArray = script.match(/defineProps\s*\(\s*\[([\s\S]*?)\]\s*\)/);
+        if (propsWithDefaults) {
+          props = [...propsWithDefaults[1].matchAll(/(\w+)\s*:/g)].map(m => m[1]);
+        } else if (propsGeneric) {
+          props = [...propsGeneric[1].matchAll(/(\w+)\s*[?:]?\s*:/g)].map(m => m[1]);
+        } else if (propsArray) {
+          props = [...propsArray[1].matchAll(/['"](\w+)['"]/g)].map(m => m[1]);
+        }
+
+        // Emits
+        let emits = [];
+        const emitsMatch = script.match(/defineEmits\s*\(\s*\[([\s\S]*?)\]\s*\)/);
+        const emitsGeneric = script.match(/defineEmits\s*<\s*\{([\s\S]*?)\}\s*>/);
+        if (emitsMatch) {
+          emits = [...emitsMatch[1].matchAll(/['"]([^'"]+)['"]/g)].map(m => m[1]);
+        } else if (emitsGeneric) {
+          emits = [...emitsGeneric[1].matchAll(/\(\s*e\s*:\s*['"]([^'"]+)['"]/g)].map(m => m[1]);
+        }
+        const templateEmits = [...template.matchAll(/\$emit\s*\(\s*['"]([^'"]+)['"]/g)].map(m => m[1]);
+        const scriptEmits = [...script.matchAll(/emit\s*\(\s*['"]([^'"]+)['"]/g)].map(m => m[1]);
+        emits = [...new Set([...emits, ...templateEmits, ...scriptEmits])];
+
+        // Functions
+        const fns = [
+          ...script.matchAll(/function\s+(\w+)\s*\(/g),
+          ...script.matchAll(/const\s+(\w+)\s*=\s*(?:async\s+)?function/g),
+          ...script.matchAll(/const\s+(\w+)\s*=\s*(?:async\s+)?\([^)]*\)\s*=>/g),
+          ...script.matchAll(/const\s+(\w+)\s*=\s*(?:async\s+)?(\w+)\s*=>/g),
+        ].map(m => m[1])
+         .filter(n => n[0] === n[0].toLowerCase() && !['ref', 'computed', 'reactive', 'watch', 'inject', 'provide', 'onMounted', 'onUnmounted', 'onBeforeMount', 'onBeforeUnmount', 'nextTick', 'defineProps', 'defineEmits', 'defineExpose', 'withDefaults', 'useRoute', 'useRouter', 'useStore'].includes(n));
+        const functions = [...new Set(fns)];
+
+        const dir = filePath.includes('/views/') || filePath.includes('/pages/') ? 'views'
+          : filePath.includes('/layouts/') ? 'layouts'
+          : filePath.includes('/components/') ? 'components'
+          : filePath.includes('/composables/') ? 'composables'
+          : 'other';
+
+        return {
+          name,
+          filePath,
+          imports: componentImports,
+          templateComponents: allTemplateComponents,
+          props,
+          emits,
+          functions,
+          group: dir,
+          allImports: imports,
+        };
+      }
+
+      // ── Graph Builder ──
+      function buildGraph(components) {
+        const byName = {};
+        for (const c of components) {
+          byName[c.name] = c;
+        }
+
+        const edges = [];
+        const edgeSet = new Set();
+        for (const c of components) {
+          const targets = new Set([
+            ...c.templateComponents,
+            ...c.imports.map(i => i.name),
+          ]);
+          for (const t of targets) {
+            if (byName[t] && t !== c.name) {
+              const key = `${c.name}->${t}`;
+              if (!edgeSet.has(key)) {
+                edgeSet.add(key);
+                edges.push({ source: c.name, target: t });
+              }
+            }
+          }
+        }
+
+        const usedBy = {};
+        for (const c of components) usedBy[c.name] = [];
+        for (const e of edges) {
+          if (usedBy[e.target]) usedBy[e.target].push(e.source);
+        }
+
+        return { byName, edges, usedBy };
+      }
+
+      // ── Scan UI ──
+      function buildScanLanes() {
+        document.getElementById('scan-lanes').innerHTML = FLEET_REPOS.map((repo, i) => `
+          <div class="scan-lane" id="scan-lane-${i}">
+            <span class="text-[11px] text-muted-light truncate" style="width: 80px;">${repo.label}</span>
+            <div class="scan-track">
+              <div class="scan-sweep" id="scan-sweep-${i}"></div>
+              <div class="scan-fill" id="scan-fill-${i}"></div>
+            </div>
+            <svg id="scan-check-${i}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" style="opacity:0;"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        `).join('');
+      }
+
+      function markLaneDone(i) {
+        const sweep = document.getElementById(`scan-sweep-${i}`);
+        const fill = document.getElementById(`scan-fill-${i}`);
+        const check = document.getElementById(`scan-check-${i}`);
+        if (sweep) sweep.style.display = 'none';
+        if (fill) gsap.to(fill, { scaleX: 1, duration: 0.4, ease: 'power2.out' });
+        if (check) gsap.to(check, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2)', delay: 0.15 });
+      }
+
+      function updateStatus(text) {
+        const el = document.getElementById('scan-status');
+        if (el) el.textContent = text;
+      }
+
+      // ── Fetch Vue files ──
+      async function fetchVueTree(project) {
+        const res = await workerFetch('/gitlab/tree', {
+          projectId: project.id,
+          path: 'src',
+          ref: project.branch,
+          recursive: true,
+        });
+        const entries = await res.json();
+        return entries.filter(e => e.type === 'blob' && e.name.endsWith('.vue'));
+      }
+
+      async function fetchVueContent(project, filePath) {
+        const res = await workerFetch('/gitlab/file', {
+          projectId: project.id,
+          filePath,
+          ref: project.branch,
+        });
+        return res.text();
+      }
+
+      async function fetchAllVueFiles(project, entries) {
+        const results = [];
+        const concurrency = 5;
+        for (let i = 0; i < entries.length; i += concurrency) {
+          const batch = entries.slice(i, i + concurrency);
+          const files = await Promise.all(
+            batch.map(async (entry) => {
+              try {
+                const content = await fetchVueContent(project, entry.path);
+                return { path: entry.path, content };
+              } catch {
+                return { path: entry.path, content: null };
+              }
+            })
+          );
+          results.push(...files);
+        }
+        return results;
+      }
+
+      // ── Mini Radial Graph ──
+      function renderMiniRadial(container, components, graph) {
+        const width = 200;
+        const height = 200;
+        const svg = d3.select(container).append('svg')
+          .attr('width', width)
+          .attr('height', height)
+          .attr('viewBox', `0 0 ${width} ${height}`);
+
+        if (components.length === 0) {
+          svg.append('text')
+            .attr('x', width / 2).attr('y', height / 2)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#505058')
+            .attr('font-size', '10px')
+            .text('No components');
+          return;
+        }
+
+        const nodes = components.map(c => ({
+          id: c.name,
+          group: c.group,
+          r: Math.max(3, Math.min(8, 3 + c.functions.length * 0.5)),
+        }));
+        const links = graph.edges.map(e => ({ source: e.source, target: e.target }));
+
+        const simulation = d3.forceSimulation(nodes)
+          .force('link', d3.forceLink(links).id(d => d.id).distance(20).strength(0.3))
+          .force('charge', d3.forceManyBody().strength(-15))
+          .force('center', d3.forceCenter(width / 2, height / 2))
+          .force('collision', d3.forceCollide().radius(d => d.r + 2))
+          .stop();
+
+        for (let i = 0; i < 120; i++) simulation.tick();
+
+        svg.append('g').selectAll('line')
+          .data(links)
+          .enter().append('line')
+          .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x).attr('y2', d => d.target.y)
+          .attr('stroke', 'rgba(255,255,255,0.06)')
+          .attr('stroke-width', 0.5);
+
+        svg.append('g').selectAll('circle')
+          .data(nodes)
+          .enter().append('circle')
+          .attr('cx', d => d.x).attr('cy', d => d.y)
+          .attr('r', d => d.r)
+          .attr('fill', d => GROUP_COLORS[d.group] || GROUP_COLORS.other)
+          .attr('opacity', 0.7);
+      }
+
+      // ── Overview Rendering ──
+      function renderOverview() {
+        const grid = document.getElementById('cards-grid');
+        const entries = Object.entries(allRepoData);
+
+        let totalComps = 0, totalFns = 0, totalRels = 0;
+
+        grid.innerHTML = '';
+        for (const [label, data] of entries) {
+          const repo = FLEET_REPOS.find(r => r.label === label);
+          const color = repo?.color || '#7e7e86';
+          const comps = data.components;
+          const graph = data.graph;
+          const fnCount = comps.reduce((s, c) => s + c.functions.length, 0);
+          const relCount = graph.edges.length;
+          const groups = {};
+          for (const c of comps) {
+            groups[c.group] = (groups[c.group] || 0) + 1;
+          }
+
+          totalComps += comps.length;
+          totalFns += fnCount;
+          totalRels += relCount;
+
+          const card = document.createElement('div');
+          card.className = 'repo-card';
+          card.innerHTML = `
+            <div class="card-glow" style="background: radial-gradient(circle, ${color}, transparent 70%);"></div>
+            <div class="flex items-center gap-3 mb-5">
+              <div class="w-3 h-3 rounded-full" style="background: ${color};"></div>
+              <span class="text-[16px] font-semibold">${label}</span>
+              <span class="text-[10px] text-muted ml-auto">${repo?.path || ''}</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mb-5">
+              <div class="stat-pill">
+                <div class="text-[18px] font-semibold tabular-nums">${comps.length}</div>
+                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Components</div>
+              </div>
+              <div class="stat-pill">
+                <div class="text-[18px] font-semibold tabular-nums">${fnCount}</div>
+                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Functions</div>
+              </div>
+              <div class="stat-pill">
+                <div class="text-[18px] font-semibold tabular-nums">${relCount}</div>
+                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Relations</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 mb-4 flex-wrap">
+              ${Object.entries(groups).map(([g, c]) => `
+                <span class="text-[9px] px-2 py-1 rounded-md" style="background: ${GROUP_COLORS[g] || GROUP_COLORS.other}20; color: ${GROUP_COLORS[g] || GROUP_COLORS.other};">${g}: ${c}</span>
+              `).join('')}
+            </div>
+            <div class="mini-radial flex justify-center mb-4" id="mini-${label}"></div>
+            <div class="flex justify-end">
+              <span class="text-[11px] text-muted-light flex items-center gap-1">
+                Explore
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </span>
+            </div>
+          `;
+          card.addEventListener('click', () => openDetail(label));
+          grid.appendChild(card);
+
+          renderMiniRadial(document.getElementById(`mini-${label}`), comps, graph);
+        }
+
+        document.getElementById('sum-components').textContent = totalComps;
+        document.getElementById('sum-functions').textContent = totalFns;
+        document.getElementById('sum-relationships').textContent = totalRels;
+        document.getElementById('sum-repos').textContent = entries.length;
+
+        document.getElementById('summary-bar').style.display = '';
+        grid.style.display = '';
+
+        gsap.fromTo('#summary-bar', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+        gsap.fromTo('.repo-card', { opacity: 0, y: 20 }, { opacity: 1, y: 0, stagger: 0.1, duration: 0.5, ease: 'power2.out', delay: 0.15 });
+      }
+
+      // ── Detail View ──
+      let activeSimulation = null;
+
+      function openDetail(label) {
+        const data = allRepoData[label];
+        if (!data) return;
+        const repo = FLEET_REPOS.find(r => r.label === label);
+
+        document.getElementById('detail-repo-name').textContent = label;
+        document.getElementById('detail-repo-path').textContent = repo?.path || '';
+        document.getElementById('detail-panel').classList.add('collapsed');
+
+        document.getElementById('overview-view').style.display = 'none';
+        document.getElementById('detail-view').style.display = '';
+
+        renderComponentList(data.components, data.graph);
+        renderForceGraph(data.components, data.graph, repo?.color || '#5E6AD2');
+        renderLegend(data.components);
+      }
+
+      function closeDetail() {
+        if (activeSimulation) { activeSimulation.stop(); activeSimulation = null; }
+        document.getElementById('detail-view').style.display = 'none';
+        document.getElementById('overview-view').style.display = '';
+        document.getElementById('graph-svg').innerHTML = '';
+      }
+
+      document.getElementById('detail-back').addEventListener('click', closeDetail);
+
+      // ── Component List (sidebar) ──
+      function renderComponentList(components, graph) {
+        const list = document.getElementById('component-list');
+        const grouped = {};
+        for (const c of components) {
+          if (!grouped[c.group]) grouped[c.group] = [];
+          grouped[c.group].push(c);
+        }
+
+        let html = '';
+        for (const [group, comps] of Object.entries(grouped).sort((a, b) => a[0].localeCompare(b[0]))) {
+          html += `<div class="group-header">${group} (${comps.length})</div>`;
+          for (const c of comps.sort((a, b) => a.name.localeCompare(b.name))) {
+            html += `
+              <div class="sidebar-item" data-component="${c.name}">
+                <span class="text-[12px] text-text-secondary truncate">${c.name}</span>
+                <span class="text-[9px] text-muted tabular-nums">${c.functions.length} fn</span>
+              </div>`;
+          }
+        }
+        list.innerHTML = html;
+
+        list.querySelectorAll('.sidebar-item').forEach(el => {
+          el.addEventListener('click', () => {
+            const name = el.dataset.component;
+            highlightNode(name);
+            showPanel(name, components, graph);
+            list.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+            el.classList.add('active');
+          });
+        });
+      }
+
+      // ── Search ──
+      let searchTimeout;
+      document.getElementById('component-search').addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          const q = e.target.value.toLowerCase().trim();
+          document.querySelectorAll('#component-list .sidebar-item').forEach(el => {
+            const name = el.dataset.component.toLowerCase();
+            el.style.display = name.includes(q) ? '' : 'none';
+          });
+          document.querySelectorAll('#component-list .group-header').forEach(el => {
+            const next = [];
+            let sib = el.nextElementSibling;
+            while (sib && !sib.classList.contains('group-header')) {
+              next.push(sib);
+              sib = sib.nextElementSibling;
+            }
+            const anyVisible = next.some(s => s.style.display !== 'none');
+            el.style.display = anyVisible ? '' : 'none';
+          });
+        }, 150);
+      });
+
+      // ── Right Panel ──
+      function showPanel(name, components, graph) {
+        const c = components.find(x => x.name === name);
+        if (!c) return;
+
+        const panel = document.getElementById('detail-panel');
+        panel.classList.remove('collapsed');
+
+        document.getElementById('panel-name').textContent = c.name;
+        document.getElementById('panel-path').textContent = c.filePath;
+
+        const usedBy = graph.usedBy[c.name] || [];
+        const uses = [...new Set([
+          ...c.templateComponents,
+          ...c.imports.map(i => i.name),
+        ])].filter(t => graph.byName[t] && t !== c.name);
+
+        let html = '';
+
+        if (c.props.length > 0) {
+          html += `<div class="panel-section">
+            <div class="panel-label">Props</div>
+            ${c.props.map(p => `<div class="panel-item"><div class="fn-dot" style="background: #3b82f6;"></div>${p}</div>`).join('')}
+          </div>`;
+        }
+
+        if (c.emits.length > 0) {
+          html += `<div class="panel-section">
+            <div class="panel-label">Events</div>
+            ${c.emits.map(e => `<div class="panel-item"><div class="fn-dot" style="background: #eab308;"></div>${e}</div>`).join('')}
+          </div>`;
+        }
+
+        if (c.functions.length > 0) {
+          html += `<div class="panel-section">
+            <div class="panel-label">Functions</div>
+            ${c.functions.map(f => `<div class="panel-item"><div class="fn-dot" style="background: #a855f7;"></div>${f}()</div>`).join('')}
+          </div>`;
+        }
+
+        if (uses.length > 0) {
+          html += `<div class="panel-section">
+            <div class="panel-label">Uses</div>
+            ${uses.map(u => `<div class="panel-item"><div class="fn-dot" style="background: #22c55e;"></div>${u}</div>`).join('')}
+          </div>`;
+        }
+
+        if (usedBy.length > 0) {
+          html += `<div class="panel-section">
+            <div class="panel-label">Used By</div>
+            ${usedBy.map(u => `<div class="panel-item"><div class="fn-dot" style="background: #E24329;"></div>${u}</div>`).join('')}
+          </div>`;
+        }
+
+        if (!html) {
+          html = '<div class="panel-section"><div class="text-[11px] text-muted">No props, events, or functions detected.</div></div>';
+        }
+
+        document.getElementById('panel-content').innerHTML = html;
+      }
+
+      // ── Force-Directed Graph ──
+      let currentHighlight = null;
+
+      function renderForceGraph(components, graph, repoColor) {
+        const container = document.getElementById('graph-container');
+        const svgEl = document.getElementById('graph-svg');
+        svgEl.innerHTML = '';
+
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+
+        const svg = d3.select(svgEl)
+          .attr('width', width)
+          .attr('height', height);
+
+        svg.append('defs').append('marker')
+          .attr('id', 'arrowhead')
+          .attr('viewBox', '0 -5 10 10')
+          .attr('refX', 20)
+          .attr('refY', 0)
+          .attr('markerWidth', 6)
+          .attr('markerHeight', 6)
+          .attr('orient', 'auto')
+          .append('path')
+          .attr('d', 'M0,-4L8,0L0,4')
+          .attr('fill', 'rgba(255,255,255,0.15)');
+
+        const g = svg.append('g');
+
+        const zoom = d3.zoom()
+          .scaleExtent([0.2, 4])
+          .on('zoom', (event) => g.attr('transform', event.transform));
+        svg.call(zoom);
+
+        const nodes = components.map(c => ({
+          id: c.name,
+          group: c.group,
+          fnCount: c.functions.length,
+          r: Math.max(10, Math.min(30, 10 + c.functions.length * 2)),
+        }));
+
+        const links = graph.edges.map(e => ({ source: e.source, target: e.target }));
+
+        const simulation = d3.forceSimulation(nodes)
+          .force('link', d3.forceLink(links).id(d => d.id).distance(80).strength(0.4))
+          .force('charge', d3.forceManyBody().strength(-200))
+          .force('center', d3.forceCenter(width / 2, height / 2))
+          .force('collision', d3.forceCollide().radius(d => d.r + 8))
+          .force('x', d3.forceX(width / 2).strength(0.03))
+          .force('y', d3.forceY(height / 2).strength(0.03));
+
+        if (activeSimulation) activeSimulation.stop();
+        activeSimulation = simulation;
+
+        const link = g.append('g')
+          .selectAll('line')
+          .data(links)
+          .enter().append('line')
+          .attr('stroke', 'rgba(255,255,255,0.08)')
+          .attr('stroke-width', 1)
+          .attr('marker-end', 'url(#arrowhead)');
+
+        const nodeGroup = g.append('g')
+          .selectAll('g')
+          .data(nodes)
+          .enter().append('g')
+          .attr('cursor', 'pointer')
+          .call(d3.drag()
+            .on('start', (event, d) => {
+              if (!event.active) simulation.alphaTarget(0.2).restart();
+              d.fx = d.x; d.fy = d.y;
+            })
+            .on('drag', (event, d) => {
+              d.fx = event.x; d.fy = event.y;
+            })
+            .on('end', (event, d) => {
+              if (!event.active) simulation.alphaTarget(0);
+              d.fx = null; d.fy = null;
+            })
+          );
+
+        nodeGroup.append('circle')
+          .attr('r', d => d.r)
+          .attr('fill', d => GROUP_COLORS[d.group] || GROUP_COLORS.other)
+          .attr('opacity', 0.85)
+          .attr('stroke', 'rgba(255,255,255,0.08)')
+          .attr('stroke-width', 1);
+
+        nodeGroup.append('text')
+          .text(d => d.id.length > 14 ? d.id.slice(0, 12) + '…' : d.id)
+          .attr('text-anchor', 'middle')
+          .attr('dy', d => d.r + 14)
+          .attr('fill', '#7e7e86')
+          .attr('font-size', '10px')
+          .attr('font-family', '"Geist Mono", monospace');
+
+        const tooltip = document.getElementById('graph-tooltip');
+
+        nodeGroup.on('mouseenter', (event, d) => {
+          if (currentHighlight) return;
+          dimExcept(d.id, nodes, links, nodeGroup, link);
+          tooltip.textContent = `${d.id} — ${d.fnCount} functions`;
+          tooltip.style.opacity = '1';
+        }).on('mousemove', (event) => {
+          tooltip.style.left = (event.clientX + 14) + 'px';
+          tooltip.style.top = (event.clientY - 8) + 'px';
+        }).on('mouseleave', () => {
+          if (currentHighlight) return;
+          resetDim(nodeGroup, link);
+          tooltip.style.opacity = '0';
+        }).on('click', (event, d) => {
+          event.stopPropagation();
+          currentHighlight = d.id;
+          dimExcept(d.id, nodes, links, nodeGroup, link);
+          showPanel(d.id, components, graph);
+          document.querySelectorAll('#component-list .sidebar-item').forEach(s => {
+            s.classList.toggle('active', s.dataset.component === d.id);
+          });
+        });
+
+        svg.on('click', () => {
+          currentHighlight = null;
+          resetDim(nodeGroup, link);
+          document.getElementById('detail-panel').classList.add('collapsed');
+          document.querySelectorAll('#component-list .sidebar-item').forEach(s => s.classList.remove('active'));
+        });
+
+        simulation.on('tick', () => {
+          link
+            .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+          nodeGroup.attr('transform', d => `translate(${d.x},${d.y})`);
+        });
+
+        window._graphNodes = nodes;
+        window._graphNodeGroup = nodeGroup;
+        window._graphLink = link;
+        window._graphLinks = links;
+        window._graphComponents = components;
+        window._graphData = graph;
+      }
+
+      function dimExcept(id, nodes, links, nodeGroup, link) {
+        const connected = new Set([id]);
+        for (const l of links) {
+          const src = typeof l.source === 'string' ? l.source : l.source.id;
+          const tgt = typeof l.target === 'string' ? l.target : l.target.id;
+          if (src === id) connected.add(tgt);
+          if (tgt === id) connected.add(src);
+        }
+
+        nodeGroup.select('circle')
+          .transition().duration(200)
+          .attr('opacity', d => connected.has(d.id) ? 0.95 : 0.1);
+        nodeGroup.select('text')
+          .transition().duration(200)
+          .attr('opacity', d => connected.has(d.id) ? 1 : 0.1);
+        link.transition().duration(200)
+          .attr('stroke', d => {
+            const src = typeof d.source === 'string' ? d.source : d.source.id;
+            const tgt = typeof d.target === 'string' ? d.target : d.target.id;
+            return (src === id || tgt === id) ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.02)';
+          })
+          .attr('stroke-width', d => {
+            const src = typeof d.source === 'string' ? d.source : d.source.id;
+            const tgt = typeof d.target === 'string' ? d.target : d.target.id;
+            return (src === id || tgt === id) ? 1.5 : 0.5;
+          });
+      }
+
+      function resetDim(nodeGroup, link) {
+        nodeGroup.select('circle')
+          .transition().duration(200)
+          .attr('opacity', 0.85);
+        nodeGroup.select('text')
+          .transition().duration(200)
+          .attr('opacity', 1);
+        link.transition().duration(200)
+          .attr('stroke', 'rgba(255,255,255,0.08)')
+          .attr('stroke-width', 1);
+      }
+
+      function highlightNode(name) {
+        if (!window._graphNodes) return;
+        currentHighlight = name;
+        dimExcept(name, window._graphNodes, window._graphLinks, window._graphNodeGroup, window._graphLink);
+      }
+
+      // ── Legend ──
+      function renderLegend(components) {
+        const groups = [...new Set(components.map(c => c.group))];
+        const legend = document.getElementById('graph-legend');
+        legend.innerHTML = `
+          <div class="text-[9px] text-muted uppercase tracking-wider mb-2 font-semibold">Legend</div>
+          ${groups.map(g => `
+            <div class="legend-row">
+              <div class="legend-swatch" style="background: ${GROUP_COLORS[g] || GROUP_COLORS.other};"></div>
+              <span>${g}</span>
+            </div>
+          `).join('')}
+          <div class="legend-row mt-2">
+            <svg width="16" height="8"><line x1="0" y1="4" x2="12" y2="4" stroke="rgba(255,255,255,0.2)" stroke-width="1" marker-end="url(#arrowhead)"/></svg>
+            <span>uses / imports</span>
+          </div>
+          <div class="legend-row">
+            <div style="width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,0.15);background:transparent;"></div>
+            <span>size = function count</span>
+          </div>
+        `;
+      }
+
+      // ── Main Scan ──
+      async function runScan() {
+        const scanCard = document.getElementById('scan-card');
+        const errorEl = document.getElementById('scan-error');
+
+        scanCard.style.display = '';
+        errorEl.style.display = 'none';
+
+        buildScanLanes();
+        gsap.fromTo(scanCard, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+
+        try {
+          updateStatus('Loading projects...');
+          const projRes = await workerFetch('/gitlab/projects');
+          const allProjects = await projRes.json();
+          const matched = matchFleetProjects(allProjects);
+
+          if (matched.length === 0) {
+            throw new Error('Could not find any mobile app repositories.');
+          }
+
+          allRepoData = {};
+
+          for (let i = 0; i < matched.length; i++) {
+            const proj = matched[i];
+            const repoIdx = FLEET_REPOS.findIndex(r => r.path === proj.path);
+            try {
+              updateStatus(`Scanning ${proj.label} tree...`);
+              const entries = await fetchVueTree(proj);
+              updateStatus(`Fetching ${entries.length} components from ${proj.label}...`);
+              const files = await fetchAllVueFiles(proj, entries);
+
+              const components = files
+                .filter(f => f.content)
+                .map(f => parseVueFile(f.content, f.path));
+
+              const graph = buildGraph(components);
+              allRepoData[proj.label] = { components, graph };
+            } catch (err) {
+              console.error(`[VueMapper] ${proj.label}:`, err);
+              allRepoData[proj.label] = { components: [], graph: { byName: {}, edges: [], usedBy: {} } };
+            }
+            if (repoIdx >= 0) markLaneDone(repoIdx);
+          }
+
+          updateStatus('Complete');
+          await new Promise(r => setTimeout(r, 400));
+          await gsap.to(scanCard, { opacity: 0, height: 0, marginBottom: 0, padding: 0, duration: 0.4, ease: 'power2.inOut' });
+          scanCard.style.display = 'none';
+
+          renderOverview();
+
+        } catch (err) {
+          console.error('[VueMapper]', err);
+          await new Promise(r => setTimeout(r, 300));
+          await gsap.to(scanCard, { opacity: 0, height: 0, duration: 0.3, ease: 'power2.inOut' });
+          scanCard.style.display = 'none';
+          errorEl.style.display = '';
+          errorEl.innerHTML = `<div class="dash-card p-6 text-center text-[#F26F60] text-[12px]">${err.message || 'Scan failed.'}</div>`;
+        }
+      }
+
+      // ── Auth ──
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('login-password').value;
+        const errEl = document.getElementById('login-error');
+        const btn = document.getElementById('login-btn');
+        if (!pw) { errEl.textContent = 'Enter a password'; return; }
+        btn.textContent = '...';
+        btn.disabled = true;
+        errEl.innerHTML = '&nbsp;';
+        try {
+          const res = await fetch(`${WORKER_URL}/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw }),
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok) {
+            errEl.textContent = json?.error || 'Authentication failed';
+            return;
+          }
+          setToken(json.token);
+          showApp();
+          runScan();
+        } catch {
+          errEl.textContent = 'Could not reach server';
+        } finally {
+          btn.textContent = 'Sign in';
+          btn.disabled = false;
+        }
+      });
+
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        if (!IS_LOCAL) { clearToken(); showLogin(); }
+      });
+
+      document.addEventListener('DOMContentLoaded', async () => {
+        if (IS_LOCAL) {
+          console.info('%c[DEV]%c Auth bypassed locally', 'color:#eab308;font-weight:bold', 'color:inherit');
+          showApp();
+          try { await runScan(); } catch (e) {
+            document.getElementById('scan-error').style.display = '';
+            document.getElementById('scan-error').innerHTML =
+              '<div class="dash-card p-6 text-center text-muted text-[12px]">API unavailable locally (CORS).</div>';
+          }
+          return;
+        }
+        if (isTokenValid()) {
+          showApp();
+          runScan();
+        } else {
+          clearToken();
+          showLogin();
+        }
+      });
+    })();
+    </script>
+  </body>
+</html>
