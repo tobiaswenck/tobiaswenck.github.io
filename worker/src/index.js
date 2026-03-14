@@ -26,6 +26,8 @@
 
 const LINEAR_GQL = "https://api.linear.app/graphql";
 const JWT_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const MAX_AUTH_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 900; // 15 minutes
 
 // ── JWT helpers (Web Crypto HMAC-SHA256, zero deps) ──
 
@@ -116,6 +118,31 @@ async function authenticate(request, env) {
   return verifyJWT(match[1], env.AUTH_SECRET);
 }
 
+// ── Rate limiting (requires KV namespace binding "RATE_LIMIT") ──
+
+async function checkRateLimit(ip, env) {
+  if (!env.RATE_LIMIT) return true;
+  const key = `auth:${ip}`;
+  const val = await env.RATE_LIMIT.get(key);
+  if (!val) return true;
+  return parseInt(val, 10) < MAX_AUTH_ATTEMPTS;
+}
+
+async function recordFailedAuth(ip, env) {
+  if (!env.RATE_LIMIT) return;
+  const key = `auth:${ip}`;
+  const val = await env.RATE_LIMIT.get(key);
+  const attempts = val ? parseInt(val, 10) + 1 : 1;
+  await env.RATE_LIMIT.put(key, String(attempts), {
+    expirationTtl: LOCKOUT_SECONDS,
+  });
+}
+
+async function clearAuthAttempts(ip, env) {
+  if (!env.RATE_LIMIT) return;
+  await env.RATE_LIMIT.delete(`auth:${ip}`);
+}
+
 // ── Query allowlist ──
 // Only these root fields may be queried. Mutations, subscriptions,
 // and introspection are blocked so the proxy can't be abused as a
@@ -197,6 +224,15 @@ function isQueryAllowed(query) {
   return rootFields.every((f) => ALLOWED_ROOT_FIELDS.has(f));
 }
 
+// ── GitLab project allowlist ──
+
+const ALLOWED_PROJECT_PATHS = new Set([
+  "Rail-Network/gps-s/mobileapp",
+  "Rail-Network/report/mobileapp",
+  "Rail-Network/komreg/komregapp",
+  "Rail-Network/fahrplan-app",
+]);
+
 // ── Route handlers ──
 
 async function handleAuth(request, env) {
@@ -215,10 +251,17 @@ async function handleAuth(request, env) {
     return jsonError("Worker misconfigured: auth secrets not set", 500, env);
   }
 
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  if (!(await checkRateLimit(ip, env))) {
+    return jsonError("Too many attempts. Try again later.", 429, env);
+  }
+
   if (body.password !== env.DASHBOARD_PASSWORD) {
+    await recordFailedAuth(ip, env);
     return jsonError("Invalid password", 401, env);
   }
 
+  await clearAuthAttempts(ip, env);
   const now = Math.floor(Date.now() / 1000);
   const token = await createJWT(
     { sub: "dashboard", iat: now, exp: now + JWT_EXPIRY_SECONDS },
@@ -403,27 +446,30 @@ async function handleGitLabFile(request, env) {
     return jsonError("Invalid JSON body", 400, env);
   }
 
-  const { projectId, filePath, ref } = body;
-  if (!projectId || !filePath || typeof filePath !== "string") {
-    return jsonError("Missing projectId or filePath", 400, env);
+  const { projectPath, filePath, ref } = body;
+  if (!projectPath || !filePath || typeof filePath !== "string") {
+    return jsonError("Missing projectPath or filePath", 400, env);
+  }
+
+  if (!ALLOWED_PROJECT_PATHS.has(projectPath)) {
+    return jsonError("Project not allowed", 403, env);
   }
 
   const fileAllowed =
     ALLOWED_FILE_PATHS.has(filePath) ||
     (typeof filePath === "string" &&
-      (filePath.endsWith(".svg") || filePath.endsWith(".vue")));
+      (filePath.endsWith(".svg") || filePath.endsWith(".vue") || filePath.endsWith(".ts")));
 
   if (!fileAllowed) {
     return jsonError(
-      `File not allowed: ${filePath}. Allowed: ${[...ALLOWED_FILE_PATHS].join(", ")}, *.svg, *.vue`,
+      `File not allowed: ${filePath}. Allowed: ${[...ALLOWED_FILE_PATHS].join(", ")}, *.svg, *.vue, *.ts`,
       403,
       env,
     );
   }
 
-  // GitLab file_path: encode slashes as %2F
   const encodedPath = filePath.split("/").map(encodeURIComponent).join("%2F");
-  const url = `${GITLAB_BASE}/api/v4/projects/${encodeURIComponent(projectId)}/repository/files/${encodedPath}/raw?ref=${encodeURIComponent(ref || "main")}`;
+  const url = `${GITLAB_BASE}/api/v4/projects/${encodeURIComponent(projectPath)}/repository/files/${encodedPath}/raw?ref=${encodeURIComponent(ref || "main")}`;
 
   const res = await fetch(url, {
     headers: {
@@ -443,7 +489,7 @@ async function handleGitLabFile(request, env) {
   const text = await res.text();
   const contentType = filePath.endsWith(".svg")
     ? "image/svg+xml"
-    : filePath.endsWith(".vue")
+    : (filePath.endsWith(".vue") || filePath.endsWith(".ts"))
       ? "text/plain"
       : "application/json";
   return new Response(text, {
@@ -480,9 +526,13 @@ async function handleGitLabTree(request, env) {
     return jsonError("Invalid JSON body", 400, env);
   }
 
-  const { projectId, path, ref, recursive } = body;
-  if (!projectId || !path || typeof path !== "string") {
-    return jsonError("Missing projectId or path", 400, env);
+  const { projectPath, path, ref, recursive } = body;
+  if (!projectPath || !path || typeof path !== "string") {
+    return jsonError("Missing projectPath or path", 400, env);
+  }
+
+  if (!ALLOWED_PROJECT_PATHS.has(projectPath)) {
+    return jsonError("Project not allowed", 403, env);
   }
 
   if (!ALLOWED_TREE_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix + "/"))) {
@@ -498,7 +548,7 @@ async function handleGitLabTree(request, env) {
   const perPage = 100;
 
   while (true) {
-    const url = `${GITLAB_BASE}/api/v4/projects/${encodeURIComponent(projectId)}/repository/tree?path=${encodeURIComponent(path)}&per_page=${perPage}&page=${page}&ref=${encodeURIComponent(ref || "main")}${recursive ? "&recursive=true" : ""}`;
+    const url = `${GITLAB_BASE}/api/v4/projects/${encodeURIComponent(projectPath)}/repository/tree?path=${encodeURIComponent(path)}&per_page=${perPage}&page=${page}&ref=${encodeURIComponent(ref || "main")}${recursive ? "&recursive=true" : ""}`;
 
     const res = await fetch(url, {
       headers: {
@@ -557,12 +607,14 @@ async function handleGitLabProjects(request, env) {
   }
 
   const projects = await res.json();
-  const list = projects.map((p) => ({
-    id: p.id,
-    name: p.name,
-    path: p.path_with_namespace,
-    defaultBranch: p.default_branch || "main",
-  }));
+  const list = projects
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      path: p.path_with_namespace,
+      defaultBranch: p.default_branch || "main",
+    }))
+    .filter((p) => ALLOWED_PROJECT_PATHS.has(p.path));
 
   return jsonResponse(list, 200, env);
 }

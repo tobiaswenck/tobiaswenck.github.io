@@ -115,7 +115,7 @@
 
       .summary-stat {
         text-align: center;
-        padding: 0 24px;
+        padding: 0 20px;
       }
       .summary-stat + .summary-stat {
         border-left: 1px solid rgba(255,255,255,0.06);
@@ -169,6 +169,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 6px;
       }
       .sidebar-item:hover { background: rgba(255,255,255,0.04); }
       .sidebar-item.active { background: rgba(94, 106, 210, 0.15); }
@@ -221,6 +222,20 @@
         flex-shrink: 0;
       }
 
+      .method-badge {
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 1px 5px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+      .method-get { background: rgba(34,197,94,0.15); color: #22c55e; }
+      .method-post { background: rgba(59,130,246,0.15); color: #3b82f6; }
+      .method-put { background: rgba(245,158,11,0.15); color: #f59e0b; }
+      .method-patch { background: rgba(245,158,11,0.15); color: #f59e0b; }
+      .method-delete { background: rgba(239,68,68,0.15); color: #ef4444; }
+
       .legend-box {
         position: absolute;
         bottom: 16px;
@@ -260,6 +275,65 @@
         opacity: 0;
         transition: opacity 0.15s;
         white-space: nowrap;
+      }
+
+      .toggle-pill {
+        font-size: 10px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        color: #505058;
+        background: transparent;
+        border: none;
+        font-family: inherit;
+      }
+      .toggle-pill.active {
+        background: rgba(255,255,255,0.06);
+        color: #ededef;
+      }
+
+      .graph-toolbar {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 10;
+        display: flex;
+        gap: 6px;
+      }
+      .toolbar-btn {
+        background: rgba(20, 20, 22, 0.85);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 10px;
+        color: #7e7e86;
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+        font-family: inherit;
+      }
+      .toolbar-btn:hover { background: rgba(30, 30, 34, 0.9); color: #a0a0a8; }
+      .toolbar-btn.active {
+        border-color: rgba(94, 106, 210, 0.4);
+        color: #5E6AD2;
+        background: rgba(94, 106, 210, 0.08);
+      }
+
+      .api-badge-sm {
+        width: 14px; height: 14px;
+        border-radius: 3px;
+        background: rgba(59,130,246,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .api-badge-sm svg { width: 8px; height: 8px; }
+
+      @keyframes impact-pulse {
+        0%, 100% { opacity: 0.08; }
+        50% { opacity: 0.2; }
       }
     </style>
   </head>
@@ -313,7 +387,7 @@
       </div>
 
       <!-- Summary bar -->
-      <div id="summary-bar" class="dash-card mb-8 py-5 flex items-center justify-center" style="display: none;">
+      <div id="summary-bar" class="dash-card mb-8 py-5 flex items-center justify-center flex-wrap" style="display: none;">
         <div class="summary-stat">
           <div class="text-[22px] font-semibold tabular-nums text-text-primary" id="sum-components">0</div>
           <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Components</div>
@@ -324,11 +398,19 @@
         </div>
         <div class="summary-stat">
           <div class="text-[22px] font-semibold tabular-nums text-text-primary" id="sum-relationships">0</div>
-          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Relationships</div>
+          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Relations</div>
+        </div>
+        <div class="summary-stat">
+          <div class="text-[22px] font-semibold tabular-nums text-text-primary" id="sum-pages">0</div>
+          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Pages</div>
+        </div>
+        <div class="summary-stat">
+          <div class="text-[22px] font-semibold tabular-nums text-text-primary" id="sum-endpoints">0</div>
+          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Endpoints</div>
         </div>
         <div class="summary-stat">
           <div class="text-[22px] font-semibold tabular-nums text-text-primary" id="sum-repos">0</div>
-          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Repositories</div>
+          <div class="text-[10px] text-muted uppercase tracking-wider mt-1">Repos</div>
         </div>
       </div>
 
@@ -353,9 +435,13 @@
             <div class="text-[15px] font-semibold tracking-tight" id="detail-repo-name"></div>
             <div class="text-[10px] text-muted mt-1" id="detail-repo-path"></div>
           </div>
-          <div class="p-3">
+          <div class="p-3 flex flex-col gap-2">
             <input id="component-search" type="text" autocomplete="off" placeholder="Search components..."
               class="sidebar-search w-full h-8 rounded-lg px-3 text-[12px] text-text-primary placeholder-muted">
+            <div class="flex gap-1" id="group-toggle">
+              <button class="toggle-pill active" data-group-mode="directory">Directory</button>
+              <button class="toggle-pill" data-group-mode="route">Route</button>
+            </div>
           </div>
           <div class="flex-1 overflow-y-auto px-2 pb-4" id="component-list" style="scrollbar-width: none;"></div>
         </div>
@@ -364,7 +450,9 @@
         <div class="flex-1 relative" id="graph-container" style="min-height: 0; overflow: hidden;">
           <svg id="graph-svg" style="width: 100%; height: 100%; display: block;"></svg>
           <div class="graph-tooltip" id="graph-tooltip"></div>
-          <!-- Legend -->
+          <div class="graph-toolbar">
+            <button class="toolbar-btn active" id="impact-toggle">Impact Radius</button>
+          </div>
           <div class="legend-box" id="graph-legend"></div>
         </div>
 
@@ -373,6 +461,7 @@
           <div class="p-5 border-b border-[rgba(255,255,255,0.06)]">
             <div class="text-[14px] font-semibold text-text-primary" id="panel-name"></div>
             <div class="text-[10px] text-muted mt-1 break-all" id="panel-path"></div>
+            <div class="text-[10px] mt-1" id="panel-route" style="display:none;"></div>
           </div>
           <div id="panel-content"></div>
         </div>
@@ -388,6 +477,10 @@
       function getToken() { return localStorage.getItem(TOKEN_KEY); }
       function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
       function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+      function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
 
       function decodePayload(token) {
         try {
@@ -451,6 +544,11 @@
         other:      '#7e7e86',
       };
 
+      const METHOD_COLORS = {
+        GET: '#22c55e', POST: '#3b82f6', PUT: '#f59e0b',
+        PATCH: '#f59e0b', DELETE: '#ef4444',
+      };
+
       let allRepoData = {};
 
       function matchFleetProjects(projects) {
@@ -462,6 +560,57 @@
           );
           return p ? { ...repo, id: p.id, branch: p.defaultBranch || 'main' } : null;
         }).filter(Boolean);
+      }
+
+      // ── Ajax Endpoint Parser ──
+      function extractAjaxEndpoints(content) {
+        const endpoints = [];
+        const matches = [...content.matchAll(
+          /Ajax\.(get|post|put|patch|delete)\s*\(\s*\{[\s\S]*?route\s*:\s*['"`]([^'"`]+)['"`]/gi
+        )];
+        for (const m of matches) {
+          endpoints.push({ method: m[1].toUpperCase(), route: m[2] });
+        }
+        return endpoints;
+      }
+
+      // ── Router Parser ──
+      function parseRouterFile(content) {
+        const routes = [];
+        const blocks = content.split(/\{/).slice(1);
+        let buffer = '';
+        let depth = 1;
+        const routeBlocks = [];
+        for (const block of blocks) {
+          for (const ch of block) {
+            if (ch === '{') depth++;
+            else if (ch === '}') depth--;
+            buffer += ch;
+            if (depth === 0) {
+              routeBlocks.push(buffer);
+              buffer = '';
+              depth = 1;
+              break;
+            }
+          }
+        }
+
+        const lazyMatches = [...content.matchAll(
+          /path\s*:\s*['"]([^'"]+)['"][\s\S]*?import\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+        )];
+        for (const m of lazyMatches) {
+          const compName = m[2].split('/').pop().replace('.vue', '');
+          routes.push({ path: m[1], component: compName });
+        }
+        const directMatches = [...content.matchAll(
+          /path\s*:\s*['"]([^'"]+)['"][\s\S]*?component\s*:\s*([A-Z]\w+)/g
+        )];
+        for (const m of directMatches) {
+          if (!routes.some(r => r.path === m[1])) {
+            routes.push({ path: m[1], component: m[2] });
+          }
+        }
+        return routes;
       }
 
       // ── Vue SFC Parser ──
@@ -497,7 +646,6 @@
 
         const allTemplateComponents = [...new Set([...templateComponents, ...kebabComponents])];
 
-        // Props
         let props = [];
         const propsWithDefaults = script.match(/defineProps\s*\(\s*\{([\s\S]*?)\}\s*\)/);
         const propsGeneric = script.match(/defineProps\s*<\s*\{([\s\S]*?)\}\s*>/);
@@ -510,7 +658,6 @@
           props = [...propsArray[1].matchAll(/['"](\w+)['"]/g)].map(m => m[1]);
         }
 
-        // Emits
         let emits = [];
         const emitsMatch = script.match(/defineEmits\s*\(\s*\[([\s\S]*?)\]\s*\)/);
         const emitsGeneric = script.match(/defineEmits\s*<\s*\{([\s\S]*?)\}\s*>/);
@@ -523,7 +670,6 @@
         const scriptEmits = [...script.matchAll(/emit\s*\(\s*['"]([^'"]+)['"]/g)].map(m => m[1]);
         emits = [...new Set([...emits, ...templateEmits, ...scriptEmits])];
 
-        // Functions
         const fns = [
           ...script.matchAll(/function\s+(\w+)\s*\(/g),
           ...script.matchAll(/const\s+(\w+)\s*=\s*(?:async\s+)?function/g),
@@ -539,6 +685,8 @@
           : filePath.includes('/composables/') ? 'composables'
           : 'other';
 
+        const directEndpoints = extractAjaxEndpoints(script);
+
         return {
           name,
           filePath,
@@ -549,6 +697,8 @@
           functions,
           group: dir,
           allImports: imports,
+          apiEndpoints: directEndpoints,
+          route: null,
         };
       }
 
@@ -586,11 +736,31 @@
         return { byName, edges, usedBy };
       }
 
+      // ── Impact Radius ──
+      function computeImpactRadius(name, graph, maxHops) {
+        const hopMap = new Map();
+        hopMap.set(name, 0);
+        let frontier = [name];
+        for (let hop = 1; hop <= maxHops; hop++) {
+          const next = [];
+          for (const node of frontier) {
+            for (const e of graph.edges) {
+              const src = typeof e.source === 'string' ? e.source : e.source.id;
+              const tgt = typeof e.target === 'string' ? e.target : e.target.id;
+              if (src === node && !hopMap.has(tgt)) { hopMap.set(tgt, hop); next.push(tgt); }
+              if (tgt === node && !hopMap.has(src)) { hopMap.set(src, hop); next.push(src); }
+            }
+          }
+          frontier = next;
+        }
+        return hopMap;
+      }
+
       // ── Scan UI ──
       function buildScanLanes() {
         document.getElementById('scan-lanes').innerHTML = FLEET_REPOS.map((repo, i) => `
           <div class="scan-lane" id="scan-lane-${i}">
-            <span class="text-[11px] text-muted-light truncate" style="width: 80px;">${repo.label}</span>
+            <span class="text-[11px] text-muted-light truncate" style="width: 80px;">${esc(repo.label)}</span>
             <div class="scan-track">
               <div class="scan-sweep" id="scan-sweep-${i}"></div>
               <div class="scan-fill" id="scan-fill-${i}"></div>
@@ -614,28 +784,27 @@
         if (el) el.textContent = text;
       }
 
-      // ── Fetch Vue files ──
-      async function fetchVueTree(project) {
+      // ── Fetch files ──
+      async function fetchSrcTree(project) {
         const res = await workerFetch('/gitlab/tree', {
-          projectId: project.id,
+          projectPath: project.path,
           path: 'src',
           ref: project.branch,
           recursive: true,
         });
-        const entries = await res.json();
-        return entries.filter(e => e.type === 'blob' && e.name.endsWith('.vue'));
+        return res.json();
       }
 
-      async function fetchVueContent(project, filePath) {
+      async function fetchFileContent(project, filePath) {
         const res = await workerFetch('/gitlab/file', {
-          projectId: project.id,
+          projectPath: project.path,
           filePath,
           ref: project.branch,
         });
         return res.text();
       }
 
-      async function fetchAllVueFiles(project, entries) {
+      async function fetchAllFiles(project, entries) {
         const results = [];
         const concurrency = 5;
         for (let i = 0; i < entries.length; i += concurrency) {
@@ -643,7 +812,7 @@
           const files = await Promise.all(
             batch.map(async (entry) => {
               try {
-                const content = await fetchVueContent(project, entry.path);
+                const content = await fetchFileContent(project, entry.path);
                 return { path: entry.path, content };
               } catch {
                 return { path: entry.path, content: null };
@@ -712,7 +881,7 @@
         const grid = document.getElementById('cards-grid');
         const entries = Object.entries(allRepoData);
 
-        let totalComps = 0, totalFns = 0, totalRels = 0;
+        let totalComps = 0, totalFns = 0, totalRels = 0, totalPages = 0, totalEndpoints = 0;
 
         grid.innerHTML = '';
         for (const [label, data] of entries) {
@@ -722,6 +891,12 @@
           const graph = data.graph;
           const fnCount = comps.reduce((s, c) => s + c.functions.length, 0);
           const relCount = graph.edges.length;
+          const pageCount = (data.routes || []).length;
+          const epSet = new Set();
+          for (const c of comps) {
+            for (const ep of (c.apiEndpoints || [])) epSet.add(ep.method + ' ' + ep.route);
+          }
+          const epCount = epSet.size;
           const groups = {};
           for (const c of comps) {
             groups[c.group] = (groups[c.group] || 0) + 1;
@@ -730,6 +905,8 @@
           totalComps += comps.length;
           totalFns += fnCount;
           totalRels += relCount;
+          totalPages += pageCount;
+          totalEndpoints += epCount;
 
           const card = document.createElement('div');
           card.className = 'repo-card';
@@ -737,26 +914,34 @@
             <div class="card-glow" style="background: radial-gradient(circle, ${color}, transparent 70%);"></div>
             <div class="flex items-center gap-3 mb-5">
               <div class="w-3 h-3 rounded-full" style="background: ${color};"></div>
-              <span class="text-[16px] font-semibold">${label}</span>
-              <span class="text-[10px] text-muted ml-auto">${repo?.path || ''}</span>
+              <span class="text-[16px] font-semibold">${esc(label)}</span>
+              <span class="text-[10px] text-muted ml-auto">${esc(repo?.path || '')}</span>
             </div>
-            <div class="grid grid-cols-3 gap-2 mb-5">
+            <div class="grid grid-cols-5 gap-2 mb-5">
               <div class="stat-pill">
                 <div class="text-[18px] font-semibold tabular-nums">${comps.length}</div>
-                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Components</div>
+                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Comps</div>
               </div>
               <div class="stat-pill">
                 <div class="text-[18px] font-semibold tabular-nums">${fnCount}</div>
-                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Functions</div>
+                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Fns</div>
               </div>
               <div class="stat-pill">
                 <div class="text-[18px] font-semibold tabular-nums">${relCount}</div>
-                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Relations</div>
+                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Rels</div>
+              </div>
+              <div class="stat-pill">
+                <div class="text-[18px] font-semibold tabular-nums">${pageCount}</div>
+                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">Pages</div>
+              </div>
+              <div class="stat-pill">
+                <div class="text-[18px] font-semibold tabular-nums">${epCount}</div>
+                <div class="text-[9px] text-muted uppercase tracking-wider mt-1">APIs</div>
               </div>
             </div>
             <div class="flex items-center gap-2 mb-4 flex-wrap">
               ${Object.entries(groups).map(([g, c]) => `
-                <span class="text-[9px] px-2 py-1 rounded-md" style="background: ${GROUP_COLORS[g] || GROUP_COLORS.other}20; color: ${GROUP_COLORS[g] || GROUP_COLORS.other};">${g}: ${c}</span>
+                <span class="text-[9px] px-2 py-1 rounded-md" style="background: ${GROUP_COLORS[g] || GROUP_COLORS.other}20; color: ${GROUP_COLORS[g] || GROUP_COLORS.other};">${esc(g)}: ${c}</span>
               `).join('')}
             </div>
             <div class="mini-radial flex justify-center mb-4" id="mini-${label}"></div>
@@ -776,6 +961,8 @@
         document.getElementById('sum-components').textContent = totalComps;
         document.getElementById('sum-functions').textContent = totalFns;
         document.getElementById('sum-relationships').textContent = totalRels;
+        document.getElementById('sum-pages').textContent = totalPages;
+        document.getElementById('sum-endpoints').textContent = totalEndpoints;
         document.getElementById('sum-repos').textContent = entries.length;
 
         document.getElementById('summary-bar').style.display = '';
@@ -787,11 +974,15 @@
 
       // ── Detail View ──
       let activeSimulation = null;
+      let currentDetailData = null;
+      let sidebarGroupMode = 'directory';
+      let impactMode = true;
 
       function openDetail(label) {
         const data = allRepoData[label];
         if (!data) return;
         const repo = FLEET_REPOS.find(r => r.label === label);
+        currentDetailData = data;
 
         document.getElementById('detail-repo-name').textContent = label;
         document.getElementById('detail-repo-path').textContent = repo?.path || '';
@@ -800,7 +991,12 @@
         document.getElementById('overview-view').style.display = 'none';
         document.getElementById('detail-view').classList.add('open');
 
-        renderComponentList(data.components, data.graph);
+        sidebarGroupMode = 'directory';
+        document.querySelectorAll('#group-toggle .toggle-pill').forEach(p => {
+          p.classList.toggle('active', p.dataset.groupMode === 'directory');
+        });
+
+        renderComponentList(data.components, data.graph, data.routes || []);
         requestAnimationFrame(() => {
           renderForceGraph(data.components, data.graph, repo?.color || '#5E6AD2');
           renderLegend(data.components);
@@ -812,27 +1008,63 @@
         document.getElementById('detail-view').classList.remove('open');
         document.getElementById('overview-view').style.display = '';
         document.getElementById('graph-svg').innerHTML = '';
+        currentDetailData = null;
       }
 
       document.getElementById('detail-back').addEventListener('click', closeDetail);
 
+      // ── Group toggle ──
+      document.getElementById('group-toggle').addEventListener('click', (e) => {
+        const pill = e.target.closest('.toggle-pill');
+        if (!pill || !currentDetailData) return;
+        sidebarGroupMode = pill.dataset.groupMode;
+        document.querySelectorAll('#group-toggle .toggle-pill').forEach(p => {
+          p.classList.toggle('active', p.dataset.groupMode === sidebarGroupMode);
+        });
+        renderComponentList(currentDetailData.components, currentDetailData.graph, currentDetailData.routes || []);
+      });
+
+      // ── Impact toggle ──
+      document.getElementById('impact-toggle').addEventListener('click', () => {
+        impactMode = !impactMode;
+        document.getElementById('impact-toggle').classList.toggle('active', impactMode);
+      });
+
       // ── Component List (sidebar) ──
-      function renderComponentList(components, graph) {
+      function renderComponentList(components, graph, routes) {
         const list = document.getElementById('component-list');
-        const grouped = {};
-        for (const c of components) {
-          if (!grouped[c.group]) grouped[c.group] = [];
-          grouped[c.group].push(c);
+        const routeMap = {};
+        for (const r of routes) routeMap[r.component] = r.path;
+
+        let grouped;
+        if (sidebarGroupMode === 'route') {
+          grouped = {};
+          for (const c of components) {
+            const routePath = routeMap[c.name] || c.route;
+            const key = routePath || '—unrouted';
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(c);
+          }
+        } else {
+          grouped = {};
+          for (const c of components) {
+            if (!grouped[c.group]) grouped[c.group] = [];
+            grouped[c.group].push(c);
+          }
         }
 
         let html = '';
         for (const [group, comps] of Object.entries(grouped).sort((a, b) => a[0].localeCompare(b[0]))) {
-          html += `<div class="group-header">${group} (${comps.length})</div>`;
+          html += `<div class="group-header">${esc(group)} (${comps.length})</div>`;
           for (const c of comps.sort((a, b) => a.name.localeCompare(b.name))) {
+            const hasApi = c.apiEndpoints && c.apiEndpoints.length > 0;
             html += `
-              <div class="sidebar-item" data-component="${c.name}">
-                <span class="text-[12px] text-text-secondary truncate">${c.name}</span>
-                <span class="text-[9px] text-muted tabular-nums">${c.functions.length} fn</span>
+              <div class="sidebar-item" data-component="${esc(c.name)}">
+                <span class="text-[12px] text-text-secondary truncate">${esc(c.name)}</span>
+                <span class="flex items-center gap-2">
+                  ${hasApi ? '<span class="api-badge-sm"><svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg></span>' : ''}
+                  <span class="text-[9px] text-muted tabular-nums">${c.functions.length} fn</span>
+                </span>
               </div>`;
           }
         }
@@ -883,6 +1115,14 @@
         document.getElementById('panel-name').textContent = c.name;
         document.getElementById('panel-path').textContent = c.filePath;
 
+        const routeEl = document.getElementById('panel-route');
+        if (c.route) {
+          routeEl.style.display = '';
+          routeEl.innerHTML = `<span style="color:#5E6AD2;">Route: ${esc(c.route)}</span>`;
+        } else {
+          routeEl.style.display = 'none';
+        }
+
         const usedBy = graph.usedBy[c.name] || [];
         const uses = [...new Set([
           ...c.templateComponents,
@@ -891,38 +1131,69 @@
 
         let html = '';
 
+        // Impact radius section
+        if (impactMode) {
+          const hopMap = computeImpactRadius(c.name, graph, 2);
+          const hop1 = [], hop2 = [];
+          hopMap.forEach((hop, n) => {
+            if (hop === 1) hop1.push(n);
+            if (hop === 2) hop2.push(n);
+          });
+          const total = hop1.length + hop2.length;
+          if (total > 0) {
+            html += `<div class="panel-section" style="background: rgba(94,106,210,0.04);">
+              <div class="panel-label" style="color: #5E6AD2;">Impact Radius — ${total} component${total !== 1 ? 's' : ''}</div>
+              ${hop1.length > 0 ? `<div class="text-[10px] text-muted mb-1">Direct (${hop1.length})</div>
+                ${hop1.sort().map(n => `<div class="panel-item"><div class="fn-dot" style="background: #5E6AD2; opacity: 0.8;"></div>${esc(n)}</div>`).join('')}` : ''}
+              ${hop2.length > 0 ? `<div class="text-[10px] text-muted mb-1 mt-2">Secondary (${hop2.length})</div>
+                ${hop2.sort().map(n => `<div class="panel-item"><div class="fn-dot" style="background: #5E6AD2; opacity: 0.4;"></div>${esc(n)}</div>`).join('')}` : ''}
+            </div>`;
+          }
+        }
+
+        // API Endpoints
+        if (c.apiEndpoints && c.apiEndpoints.length > 0) {
+          html += `<div class="panel-section">
+            <div class="panel-label">API Endpoints</div>
+            ${c.apiEndpoints.map(ep => `<div class="panel-item">
+              <span class="method-badge method-${esc(ep.method.toLowerCase())}">${esc(ep.method)}</span>
+              <span class="text-[11px]" style="color: #ededef;">${esc(ep.route)}</span>
+            </div>`).join('')}
+          </div>`;
+        }
+
         if (c.props.length > 0) {
           html += `<div class="panel-section">
             <div class="panel-label">Props</div>
-            ${c.props.map(p => `<div class="panel-item"><div class="fn-dot" style="background: #3b82f6;"></div>${p}</div>`).join('')}
+            ${c.props.map(p => `<div class="panel-item"><div class="fn-dot" style="background: #3b82f6;"></div>${esc(p)}</div>`).join('')}
           </div>`;
         }
 
         if (c.emits.length > 0) {
           html += `<div class="panel-section">
             <div class="panel-label">Events</div>
-            ${c.emits.map(e => `<div class="panel-item"><div class="fn-dot" style="background: #eab308;"></div>${e}</div>`).join('')}
+            ${c.emits.map(e => `<div class="panel-item"><div class="fn-dot" style="background: #eab308;"></div>${esc(e)}</div>`).join('')}
           </div>`;
         }
 
         if (c.functions.length > 0) {
           html += `<div class="panel-section">
             <div class="panel-label">Functions</div>
-            ${c.functions.map(f => `<div class="panel-item"><div class="fn-dot" style="background: #a855f7;"></div>${f}()</div>`).join('')}
+            ${c.functions.map(f => `<div class="panel-item"><div class="fn-dot" style="background: #a855f7;"></div>${esc(f)}()</div>`).join('')}
           </div>`;
         }
 
         if (uses.length > 0) {
           html += `<div class="panel-section">
             <div class="panel-label">Uses</div>
-            ${uses.map(u => `<div class="panel-item"><div class="fn-dot" style="background: #22c55e;"></div>${u}</div>`).join('')}
+            ${uses.map(u => `<div class="panel-item"><div class="fn-dot" style="background: #22c55e;"></div>${esc(u)}</div>`).join('')}
           </div>`;
         }
 
         if (usedBy.length > 0) {
           html += `<div class="panel-section">
             <div class="panel-label">Used By</div>
-            ${usedBy.map(u => `<div class="panel-item"><div class="fn-dot" style="background: #E24329;"></div>${u}</div>`).join('')}
+            ${usedBy.map(u => `<div class="panel-item"><div class="fn-dot" style="background: #E24329;"></div>${esc(u)}</div>`).join('')}
           </div>`;
         }
 
@@ -948,7 +1219,8 @@
           .attr('width', width)
           .attr('height', height);
 
-        svg.append('defs').append('marker')
+        const defs = svg.append('defs');
+        defs.append('marker')
           .attr('id', 'arrowhead')
           .attr('viewBox', '0 -5 10 10')
           .attr('refX', 20)
@@ -961,6 +1233,7 @@
           .attr('fill', 'rgba(255,255,255,0.15)');
 
         const g = svg.append('g');
+        const impactLayer = g.append('g').attr('class', 'impact-rings');
 
         const zoom = d3.zoom()
           .scaleExtent([0.2, 4])
@@ -971,6 +1244,8 @@
           id: c.name,
           group: c.group,
           fnCount: c.functions.length,
+          apiCount: (c.apiEndpoints || []).length,
+          hasRoute: !!c.route,
           r: Math.max(10, Math.min(30, 10 + c.functions.length * 2)),
         }));
 
@@ -1021,6 +1296,14 @@
           .attr('stroke', 'rgba(255,255,255,0.08)')
           .attr('stroke-width', 1);
 
+        nodeGroup.filter(d => d.hasRoute).append('circle')
+          .attr('r', d => d.r + 4)
+          .attr('fill', 'none')
+          .attr('stroke', '#5E6AD2')
+          .attr('stroke-width', 1)
+          .attr('stroke-dasharray', '3,3')
+          .attr('opacity', 0.4);
+
         nodeGroup.append('text')
           .text(d => d.id.length > 14 ? d.id.slice(0, 12) + '…' : d.id)
           .attr('text-anchor', 'middle')
@@ -1033,20 +1316,22 @@
 
         nodeGroup.on('mouseenter', (event, d) => {
           if (currentHighlight) return;
-          dimExcept(d.id, nodes, links, nodeGroup, link);
-          tooltip.textContent = `${d.id} — ${d.fnCount} functions`;
+          dimGraph(d.id, nodes, links, nodeGroup, link, impactLayer, graph);
+          const parts = [`${d.fnCount} fn`];
+          if (d.apiCount > 0) parts.push(`${d.apiCount} API`);
+          tooltip.textContent = `${d.id} — ${parts.join(', ')}`;
           tooltip.style.opacity = '1';
         }).on('mousemove', (event) => {
           tooltip.style.left = (event.clientX + 14) + 'px';
           tooltip.style.top = (event.clientY - 8) + 'px';
         }).on('mouseleave', () => {
           if (currentHighlight) return;
-          resetDim(nodeGroup, link);
+          resetDim(nodeGroup, link, impactLayer);
           tooltip.style.opacity = '0';
         }).on('click', (event, d) => {
           event.stopPropagation();
           currentHighlight = d.id;
-          dimExcept(d.id, nodes, links, nodeGroup, link);
+          dimGraph(d.id, nodes, links, nodeGroup, link, impactLayer, graph);
           showPanel(d.id, components, graph);
           document.querySelectorAll('#component-list .sidebar-item').forEach(s => {
             s.classList.toggle('active', s.dataset.component === d.id);
@@ -1055,7 +1340,7 @@
 
         svg.on('click', () => {
           currentHighlight = null;
-          resetDim(nodeGroup, link);
+          resetDim(nodeGroup, link, impactLayer);
           document.getElementById('detail-panel').classList.add('collapsed');
           document.querySelectorAll('#component-list .sidebar-item').forEach(s => s.classList.remove('active'));
         });
@@ -1071,40 +1356,101 @@
         window._graphNodeGroup = nodeGroup;
         window._graphLink = link;
         window._graphLinks = links;
+        window._graphImpactLayer = impactLayer;
         window._graphComponents = components;
         window._graphData = graph;
       }
 
-      function dimExcept(id, nodes, links, nodeGroup, link) {
-        const connected = new Set([id]);
-        for (const l of links) {
-          const src = typeof l.source === 'string' ? l.source : l.source.id;
-          const tgt = typeof l.target === 'string' ? l.target : l.target.id;
-          if (src === id) connected.add(tgt);
-          if (tgt === id) connected.add(src);
-        }
+      function dimGraph(id, nodes, links, nodeGroup, link, impactLayer, graph) {
+        impactLayer.selectAll('*').remove();
 
-        nodeGroup.select('circle')
-          .transition().duration(200)
-          .attr('opacity', d => connected.has(d.id) ? 0.95 : 0.1);
-        nodeGroup.select('text')
-          .transition().duration(200)
-          .attr('opacity', d => connected.has(d.id) ? 1 : 0.1);
-        link.transition().duration(200)
-          .attr('stroke', d => {
-            const src = typeof d.source === 'string' ? d.source : d.source.id;
-            const tgt = typeof d.target === 'string' ? d.target : d.target.id;
-            return (src === id || tgt === id) ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.02)';
-          })
-          .attr('stroke-width', d => {
-            const src = typeof d.source === 'string' ? d.source : d.source.id;
-            const tgt = typeof d.target === 'string' ? d.target : d.target.id;
-            return (src === id || tgt === id) ? 1.5 : 0.5;
-          });
+        if (impactMode) {
+          const hopMap = computeImpactRadius(id, graph, 2);
+
+          const HOP_OPACITY = { 0: 0.95, 1: 0.75, 2: 0.35 };
+          const DIM_OPACITY = 0.05;
+
+          nodeGroup.select('circle:first-child')
+            .transition().duration(250)
+            .attr('opacity', d => hopMap.has(d.id) ? HOP_OPACITY[hopMap.get(d.id)] : DIM_OPACITY);
+          nodeGroup.select('text')
+            .transition().duration(250)
+            .attr('opacity', d => hopMap.has(d.id) ? (hopMap.get(d.id) === 0 ? 1 : 0.7) : 0.05);
+
+          link.transition().duration(250)
+            .attr('stroke', d => {
+              const src = typeof d.source === 'string' ? d.source : d.source.id;
+              const tgt = typeof d.target === 'string' ? d.target : d.target.id;
+              if (hopMap.has(src) && hopMap.has(tgt)) {
+                const maxHop = Math.max(hopMap.get(src), hopMap.get(tgt));
+                return maxHop <= 1 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)';
+              }
+              return 'rgba(255,255,255,0.015)';
+            })
+            .attr('stroke-width', d => {
+              const src = typeof d.source === 'string' ? d.source : d.source.id;
+              const tgt = typeof d.target === 'string' ? d.target : d.target.id;
+              if ((src === id || tgt === id)) return 1.5;
+              return hopMap.has(src) && hopMap.has(tgt) ? 0.8 : 0.3;
+            });
+
+          const selectedNode = nodes.find(n => n.id === id);
+          if (selectedNode) {
+            impactLayer.append('circle')
+              .attr('cx', selectedNode.x).attr('cy', selectedNode.y)
+              .attr('r', 60)
+              .attr('fill', 'none')
+              .attr('stroke', 'rgba(94,106,210,0.15)')
+              .attr('stroke-width', 1)
+              .attr('stroke-dasharray', '4,4')
+              .style('animation', 'impact-pulse 2s ease-in-out infinite');
+
+            impactLayer.append('circle')
+              .attr('cx', selectedNode.x).attr('cy', selectedNode.y)
+              .attr('r', 120)
+              .attr('fill', 'none')
+              .attr('stroke', 'rgba(94,106,210,0.06)')
+              .attr('stroke-width', 1)
+              .attr('stroke-dasharray', '2,6');
+
+            simulation.on('tick.impact', () => {
+              impactLayer.selectAll('circle')
+                .attr('cx', selectedNode.x)
+                .attr('cy', selectedNode.y);
+            });
+          }
+        } else {
+          const connected = new Set([id]);
+          for (const l of links) {
+            const src = typeof l.source === 'string' ? l.source : l.source.id;
+            const tgt = typeof l.target === 'string' ? l.target : l.target.id;
+            if (src === id) connected.add(tgt);
+            if (tgt === id) connected.add(src);
+          }
+
+          nodeGroup.select('circle:first-child')
+            .transition().duration(200)
+            .attr('opacity', d => connected.has(d.id) ? 0.95 : 0.1);
+          nodeGroup.select('text')
+            .transition().duration(200)
+            .attr('opacity', d => connected.has(d.id) ? 1 : 0.1);
+          link.transition().duration(200)
+            .attr('stroke', d => {
+              const src = typeof d.source === 'string' ? d.source : d.source.id;
+              const tgt = typeof d.target === 'string' ? d.target : d.target.id;
+              return (src === id || tgt === id) ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.02)';
+            })
+            .attr('stroke-width', d => {
+              const src = typeof d.source === 'string' ? d.source : d.source.id;
+              const tgt = typeof d.target === 'string' ? d.target : d.target.id;
+              return (src === id || tgt === id) ? 1.5 : 0.5;
+            });
+        }
       }
 
-      function resetDim(nodeGroup, link) {
-        nodeGroup.select('circle')
+      function resetDim(nodeGroup, link, impactLayer) {
+        if (impactLayer) impactLayer.selectAll('*').remove();
+        nodeGroup.select('circle:first-child')
           .transition().duration(200)
           .attr('opacity', 0.85);
         nodeGroup.select('text')
@@ -1118,7 +1464,7 @@
       function highlightNode(name) {
         if (!window._graphNodes) return;
         currentHighlight = name;
-        dimExcept(name, window._graphNodes, window._graphLinks, window._graphNodeGroup, window._graphLink);
+        dimGraph(name, window._graphNodes, window._graphLinks, window._graphNodeGroup, window._graphLink, window._graphImpactLayer, window._graphData);
       }
 
       // ── Legend ──
@@ -1130,7 +1476,7 @@
           ${groups.map(g => `
             <div class="legend-row">
               <div class="legend-swatch" style="background: ${GROUP_COLORS[g] || GROUP_COLORS.other};"></div>
-              <span>${g}</span>
+              <span>${esc(g)}</span>
             </div>
           `).join('')}
           <div class="legend-row mt-2">
@@ -1140,6 +1486,14 @@
           <div class="legend-row">
             <div style="width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,0.15);background:transparent;"></div>
             <span>size = function count</span>
+          </div>
+          <div class="legend-row">
+            <div style="width:10px;height:10px;border-radius:50%;border:1px dashed #5E6AD2;background:transparent;"></div>
+            <span>route target</span>
+          </div>
+          <div class="legend-row">
+            <div style="width:10px;height:10px;border-radius:50%;border:1px dashed rgba(94,106,210,0.3);background:rgba(94,106,210,0.05);"></div>
+            <span>impact radius</span>
           </div>
         `;
       }
@@ -1172,19 +1526,72 @@
             const repoIdx = FLEET_REPOS.findIndex(r => r.path === proj.path);
             try {
               updateStatus(`Scanning ${proj.label} tree...`);
-              const entries = await fetchVueTree(proj);
-              updateStatus(`Fetching ${entries.length} components from ${proj.label}...`);
-              const files = await fetchAllVueFiles(proj, entries);
+              const allEntries = await fetchSrcTree(proj);
+              const vueEntries = allEntries.filter(e => e.type === 'blob' && e.name.endsWith('.vue'));
+              const tsEntries = allEntries.filter(e => e.type === 'blob' && e.name.endsWith('.ts') && !e.name.endsWith('.d.ts'));
 
-              const components = files
+              updateStatus(`Fetching ${vueEntries.length} components from ${proj.label}...`);
+              const vueFiles = await fetchAllFiles(proj, vueEntries);
+
+              updateStatus(`Fetching ${tsEntries.length} TS files from ${proj.label}...`);
+              const tsFiles = await fetchAllFiles(proj, tsEntries);
+
+              // Parse router
+              let routes = [];
+              const routerFile = tsFiles.find(f => f.path.includes('router/index.ts') || f.path.includes('router.ts'));
+              if (routerFile && routerFile.content) {
+                try { routes = parseRouterFile(routerFile.content); } catch (e) { console.warn('Router parse failed:', e); }
+              }
+
+              // Build ts endpoint map
+              const tsEndpointMap = {};
+              for (const tf of tsFiles) {
+                if (!tf.content) continue;
+                const eps = extractAjaxEndpoints(tf.content);
+                if (eps.length > 0) {
+                  const tsName = tf.path.split('/').pop().replace('.ts', '');
+                  tsEndpointMap[tsName] = eps;
+                  const pathKey = tf.path.replace(/^src\//, '');
+                  tsEndpointMap[pathKey] = eps;
+                }
+              }
+
+              // Parse vue files
+              const components = vueFiles
                 .filter(f => f.content)
-                .map(f => parseVueFile(f.content, f.path));
+                .map(f => {
+                  const comp = parseVueFile(f.content, f.path);
+
+                  // Attribute route
+                  const routeMatch = routes.find(r => r.component === comp.name);
+                  if (routeMatch) comp.route = routeMatch.path;
+
+                  // Inherit endpoints from imported TS files
+                  for (const imp of comp.allImports) {
+                    const srcClean = imp.source.replace(/^[@.\/]+/, '').replace('.ts', '').replace(/^src\//, '');
+                    const srcName = srcClean.split('/').pop();
+                    const inherited = tsEndpointMap[srcName] || tsEndpointMap[srcClean];
+                    if (inherited) {
+                      comp.apiEndpoints = [...comp.apiEndpoints, ...inherited];
+                    }
+                  }
+                  // Deduplicate endpoints
+                  const seen = new Set();
+                  comp.apiEndpoints = comp.apiEndpoints.filter(ep => {
+                    const key = ep.method + ep.route;
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                  });
+
+                  return comp;
+                });
 
               const graph = buildGraph(components);
-              allRepoData[proj.label] = { components, graph };
+              allRepoData[proj.label] = { components, graph, routes };
             } catch (err) {
               console.error(`[VueMapper] ${proj.label}:`, err);
-              allRepoData[proj.label] = { components: [], graph: { byName: {}, edges: [], usedBy: {} } };
+              allRepoData[proj.label] = { components: [], graph: { byName: {}, edges: [], usedBy: {} }, routes: [] };
             }
             if (repoIdx >= 0) markLaneDone(repoIdx);
           }
@@ -1202,7 +1609,7 @@
           await gsap.to(scanCard, { opacity: 0, height: 0, duration: 0.3, ease: 'power2.inOut' });
           scanCard.style.display = 'none';
           errorEl.style.display = '';
-          errorEl.innerHTML = `<div class="dash-card p-6 text-center text-[#F26F60] text-[12px]">${err.message || 'Scan failed.'}</div>`;
+          errorEl.innerHTML = `<div class="dash-card p-6 text-center text-[#F26F60] text-[12px]">${esc(err.message || 'Scan failed.')}</div>`;
         }
       }
 
