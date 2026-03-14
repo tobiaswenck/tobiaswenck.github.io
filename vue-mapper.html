@@ -128,6 +128,11 @@
         inset: 0;
         background: #0b0b0d;
         z-index: 50;
+        height: 100vh;
+        height: 100dvh;
+      }
+      #detail-view.open {
+        display: block;
       }
 
       .detail-sidebar {
@@ -337,7 +342,7 @@
 
     <!-- ─── Detail View ─── -->
     <div id="detail-view">
-      <div class="flex h-full">
+      <div class="flex" style="height: 100vh; height: 100dvh;">
         <!-- Left sidebar -->
         <div class="detail-sidebar">
           <div class="p-4 border-b border-[rgba(255,255,255,0.06)]">
@@ -356,8 +361,8 @@
         </div>
 
         <!-- Center graph -->
-        <div class="flex-1 relative" id="graph-container">
-          <svg id="graph-svg" width="100%" height="100%"></svg>
+        <div class="flex-1 relative" id="graph-container" style="min-height: 0; overflow: hidden;">
+          <svg id="graph-svg" style="width: 100%; height: 100%; display: block;"></svg>
           <div class="graph-tooltip" id="graph-tooltip"></div>
           <!-- Legend -->
           <div class="legend-box" id="graph-legend"></div>
@@ -793,16 +798,18 @@
         document.getElementById('detail-panel').classList.add('collapsed');
 
         document.getElementById('overview-view').style.display = 'none';
-        document.getElementById('detail-view').style.display = '';
+        document.getElementById('detail-view').classList.add('open');
 
         renderComponentList(data.components, data.graph);
-        renderForceGraph(data.components, data.graph, repo?.color || '#5E6AD2');
-        renderLegend(data.components);
+        requestAnimationFrame(() => {
+          renderForceGraph(data.components, data.graph, repo?.color || '#5E6AD2');
+          renderLegend(data.components);
+        });
       }
 
       function closeDetail() {
         if (activeSimulation) { activeSimulation.stop(); activeSimulation = null; }
-        document.getElementById('detail-view').style.display = 'none';
+        document.getElementById('detail-view').classList.remove('open');
         document.getElementById('overview-view').style.display = '';
         document.getElementById('graph-svg').innerHTML = '';
       }
