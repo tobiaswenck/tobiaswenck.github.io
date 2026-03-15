@@ -451,10 +451,6 @@ async function handleGitLabFile(request, env) {
     return jsonError("Missing projectPath or filePath", 400, env);
   }
 
-  if (!ALLOWED_PROJECT_PATHS.has(projectPath)) {
-    return jsonError("Project not allowed", 403, env);
-  }
-
   const fileAllowed =
     ALLOWED_FILE_PATHS.has(filePath) ||
     (typeof filePath === "string" &&
@@ -607,14 +603,12 @@ async function handleGitLabProjects(request, env) {
   }
 
   const projects = await res.json();
-  const list = projects
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      path: p.path_with_namespace,
-      defaultBranch: p.default_branch || "main",
-    }))
-    .filter((p) => ALLOWED_PROJECT_PATHS.has(p.path));
+  const list = projects.map((p) => ({
+    id: p.id,
+    name: p.name,
+    path: p.path_with_namespace,
+    defaultBranch: p.default_branch || "main",
+  }));
 
   return jsonResponse(list, 200, env);
 }

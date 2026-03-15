@@ -364,15 +364,15 @@
         const projects = await res.json();
         const sel = document.getElementById('repo-select');
         sel.innerHTML = '<option value="">Select a project…</option>' +
-          projects.map((p) => `<option value="${p.id}" data-branch="${p.defaultBranch || 'main'}">${p.path}</option>`).join('');
+          projects.map((p) => `<option value="${p.path}" data-branch="${p.defaultBranch || 'main'}">${p.path}</option>`).join('');
         fleetProjects = matchFleetProjects(projects);
         if (fleetProjects.length > 0) runFleetScan();
       }
 
       // ── Fetch package.json & check deps ──
-      async function checkDependencies(projectId, ref) {
+      async function checkDependencies(projectPath, ref) {
         const fileRes = await workerFetch('/gitlab/file', {
-          projectId,
+          projectPath,
           filePath: 'package.json',
           ref: ref || 'main',
         });
@@ -451,8 +451,8 @@
 
       async function runCheck() {
         const sel = document.getElementById('repo-select');
-        const projectId = sel.value;
-        if (!projectId) {
+        const projectPath = sel.value;
+        if (!projectPath) {
           document.getElementById('deps-content').innerHTML =
             '<div class="p-8 text-center text-muted text-[13px]">Select a repository to check dependency freshness.</div>';
           return;
@@ -460,7 +460,7 @@
         const ref = sel.selectedOptions[0]?.dataset?.branch || 'main';
         renderLoading();
         try {
-          const report = await checkDependencies(projectId, ref);
+          const report = await checkDependencies(projectPath, ref);
           renderDeps(report);
         } catch (err) {
           renderError(err.message || 'Failed to fetch dependencies.');
@@ -515,7 +515,7 @@
 
       async function fetchFleetPackageJson(project) {
         const fileRes = await workerFetch('/gitlab/file', {
-          projectId: project.id,
+          projectPath: project.path,
           filePath: 'package.json',
           ref: project.branch,
         });
