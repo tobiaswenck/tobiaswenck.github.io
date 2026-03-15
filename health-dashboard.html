@@ -154,6 +154,27 @@
         display: flex; align-items: center; gap: 8px;
         padding: 0 2px; margin-bottom: 6px; margin-top: 16px;
       }
+      .fleet-dep-versions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px 12px;
+        margin-top: 4px;
+      }
+      .fleet-dep-versions .fdv-app {
+        display: flex; align-items: baseline; gap: 6px;
+        font-size: 10px; line-height: 1.5;
+      }
+      .fleet-dep-versions .fdv-label {
+        color: #7e7e86; white-space: nowrap; min-width: 52px;
+      }
+      .fleet-dep-versions .fdv-ver {
+        font-family: 'Geist Mono', monospace; color: #a0a0a8;
+      }
+      .fleet-dep-latest {
+        font-size: 10px; color: #505058; margin-top: 3px;
+        font-family: 'Geist Mono', monospace;
+      }
+      .fleet-dep-latest span { color: #a0a0a8; }
       .fleet-current-toggle { cursor: pointer; user-select: none; }
       .fleet-current-toggle:hover .fleet-toggle-icon { color: #a0a0a8; }
       .fleet-toggle-icon { transition: transform 0.2s; }
@@ -637,14 +658,20 @@
           }
           const hide = sev === 'current' && filter === 'all';
           for (const dep of deps) {
+            const versionHtml = dep.uniform
+              ? `<div class="text-[10px] text-muted mt-0.5 font-mono">
+                   ${dep.current || '?'} <span class="text-muted-light mx-1">&rarr;</span> <span class="text-text-secondary">${dep.latest || '?'}</span>
+                 </div>`
+              : `<div class="fleet-dep-versions">
+                   ${dep.appVersions.map(a => `<div class="fdv-app"><span class="fdv-label">${a.label}</span><span class="fdv-ver">${a.version || '?'}</span></div>`).join('')}
+                 </div>
+                 <div class="fleet-dep-latest">latest: <span>${dep.latest || '?'}</span></div>`;
             html += `
               <div class="fleet-dep-card ${sev === 'major' ? 'severity-major' : ''}" ${hide ? 'data-current-card style="display:none;"' : ''}>
                 <div class="fleet-dep-accent" style="background: ${colors[dep.severity]};"></div>
                 <div class="flex-1 min-w-0">
                   <div class="text-[12px] text-text-primary font-medium truncate">${dep.name}</div>
-                  <div class="text-[10px] text-muted mt-0.5 font-mono">
-                    ${dep.current || '?'} <span class="text-muted-light mx-1">&rarr;</span> <span class="text-text-secondary">${dep.latest || '?'}</span>
-                  </div>
+                  ${versionHtml}
                 </div>
                 <span class="staleness-badge staleness-${dep.severity}">${dep.label}</span>
               </div>`;
@@ -734,9 +761,17 @@
           const report = latestList.map(({ name, latest }) => {
             const versions = shared[name];
             const unique = [...new Set(versions)];
-            const display = unique.length === 1 ? unique[0] : unique.join(' / ');
-            const s = staleness(versions[0], latest);
-            return { name, current: display, latest, versions, ...s };
+            const uniform = unique.length === 1;
+            const display = uniform ? unique[0] : unique.join(' / ');
+            const appVersions = fleetProjects.map((p, i) => ({ label: p.label, version: versions[i] }));
+            const worstVersion = uniform ? versions[0] : versions.reduce((worst, v) => {
+              const ws = staleness(worst, latest);
+              const vs = staleness(v, latest);
+              const ord = { major: 0, minor: 1, patch: 2, current: 3 };
+              return (ord[vs.level] ?? 4) < (ord[ws.level] ?? 4) ? v : worst;
+            });
+            const s = staleness(worstVersion, latest);
+            return { name, current: display, latest, versions, appVersions, uniform, ...s };
           });
           const sevOrder = { major: 0, minor: 1, patch: 2, current: 3 };
           report.sort((a, b) => (sevOrder[a.severity] ?? 4) - (sevOrder[b.severity] ?? 4) || a.name.localeCompare(b.name));
