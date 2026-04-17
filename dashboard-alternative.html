@@ -11,6 +11,9 @@
     <!-- GSAP -->
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
 
+    <!-- Three.js (activity strip) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
     <!-- Geist Mono from Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -422,6 +425,20 @@
           </button>
         </div>
       </header>
+
+      <!-- Activity strip -->
+      <div id="activity-strip" class="gs-hidden relative h-[60px] mb-3 rounded-lg border border-border overflow-hidden bg-surface">
+        <canvas id="activity-canvas" class="block w-full h-full"></canvas>
+        <div class="absolute inset-y-0 left-0 w-16 pointer-events-none" style="background: linear-gradient(to right, #141416, transparent);"></div>
+        <div class="absolute inset-y-0 right-0 w-8 pointer-events-none" style="background: linear-gradient(to left, #141416, transparent);"></div>
+        <div class="absolute top-1 left-3 text-[9px] text-muted tracking-widest uppercase pointer-events-none">-24h</div>
+        <div class="absolute top-1 right-2 text-[9px] text-muted tracking-widest uppercase pointer-events-none">now</div>
+      </div>
+      <div id="activity-tooltip" class="hidden fixed z-50 pointer-events-none px-3 py-2 rounded-lg shadow-xl" style="max-width: 260px; background: #141416; border: 1px solid rgba(255,255,255,0.1); border-left-width: 2px;">
+        <div id="activity-tooltip-meta" class="flex items-center gap-2 text-[9px] tracking-widest uppercase mb-1"></div>
+        <div id="activity-tooltip-title" class="text-text-primary text-[12px] font-medium leading-snug mb-1"></div>
+        <div id="activity-tooltip-hint" class="text-muted text-[10px] tracking-wide">Click to open</div>
+      </div>
 
       <!-- Search bar -->
       <form id="search-form" class="flex items-center gap-3 mb-3 gs-hidden">
@@ -1095,6 +1112,7 @@
                 identifier
                 title
                 priority
+                updatedAt
                 state { name color }
                 url
               }
@@ -1185,18 +1203,28 @@
         if (!issues.length) {
           container.innerHTML = '';
           empty.classList.remove('hidden');
-          return;
+        } else {
+          empty.classList.add('hidden');
+          container.innerHTML = issues.map(issue => `
+            <a href="${escapeHtml(issue.url)}" target="_blank" rel="noopener" class="linear-issue-row">
+              <span class="status-dot" style="background: ${escapeHtml(issue.state.color)};" title="${escapeHtml(issue.state.name)}"></span>
+              <span class="text-muted text-[11px] flex-shrink-0">${escapeHtml(issue.identifier)}</span>
+              <span class="text-text-secondary text-[12px] truncate flex-1">${escapeHtml(issue.title)}</span>
+              ${priorityIcon(issue.priority)}
+            </a>
+          `).join('');
         }
 
-        empty.classList.add('hidden');
-        container.innerHTML = issues.map(issue => `
-          <a href="${escapeHtml(issue.url)}" target="_blank" rel="noopener" class="linear-issue-row">
-            <span class="status-dot" style="background: ${escapeHtml(issue.state.color)};" title="${escapeHtml(issue.state.name)}"></span>
-            <span class="text-muted text-[11px] flex-shrink-0">${escapeHtml(issue.identifier)}</span>
-            <span class="text-text-secondary text-[12px] truncate flex-1">${escapeHtml(issue.title)}</span>
-            ${priorityIcon(issue.priority)}
-          </a>
-        `).join('');
+        if (activityStrip) {
+          activityStrip.addEvents(issues.map(i => ({
+            id: `linear-issue:${i.identifier}`,
+            source: 'linear',
+            time: i.updatedAt || i.createdAt,
+            title: `${i.identifier} · ${i.title}`,
+            url: i.url,
+            priority: i.priority,
+          })));
+        }
       }
 
       function renderProjects(projects) {
@@ -1212,11 +1240,9 @@
         if (!projects.length) {
           container.innerHTML = '';
           empty.classList.remove('hidden');
-          return;
-        }
-
-        empty.classList.add('hidden');
-        container.innerHTML = projects.map(project => {
+        } else {
+          empty.classList.add('hidden');
+          container.innerHTML = projects.map(project => {
           const update = project.projectUpdates.nodes[0];
           const rawBody = update.body ? update.body.replace(/[#*_~`>]/g, '').trim() : '';
           const body = rawBody.length > 120 ? rawBody.slice(0, 120) + '...' : rawBody;
@@ -1234,7 +1260,21 @@
               </div>
             </a>
           `;
-        }).join('');
+          }).join('');
+        }
+
+        if (activityStrip) {
+          activityStrip.addEvents(projects.map(p => {
+            const update = p.projectUpdates.nodes[0];
+            return {
+              id: `linear-project:${p.name}:${update?.createdAt || ''}`,
+              source: 'linear',
+              time: update?.createdAt,
+              title: `${p.name} · project update`,
+              url: p.url,
+            };
+          }));
+        }
       }
 
       async function fetchLinearData() {
@@ -1328,28 +1368,37 @@
         if (!issues.length) {
           container.innerHTML = '';
           empty.classList.remove('hidden');
-          return;
+        } else {
+          empty.classList.add('hidden');
+          container.innerHTML = issues.map(issue => {
+            const state = getYouTrackField(issue, 'State');
+            const stateColor = state?.color?.background || '#505058';
+            const stateName = state?.name || '';
+            const id = escapeHtml(issue.idReadable || '');
+            const title = escapeHtml(issue.summary || '');
+            const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
+            const age = issue.created ? relativeTime(new Date(issue.created).toISOString()) : '';
+
+            return `
+              <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
+                <span class="status-dot" style="background: ${escapeHtml(stateColor)};" title="${escapeHtml(stateName)}"></span>
+                <span class="text-muted text-[11px] flex-shrink-0">${id}</span>
+                <span class="text-text-secondary text-[12px] truncate flex-1">${title}</span>
+                ${age ? `<span class="text-muted text-[10px] flex-shrink-0 tracking-wide">${age}</span>` : ''}
+              </a>
+            `;
+          }).join('');
         }
 
-        empty.classList.add('hidden');
-        container.innerHTML = issues.map(issue => {
-          const state = getYouTrackField(issue, 'State');
-          const stateColor = state?.color?.background || '#505058';
-          const stateName = state?.name || '';
-          const id = escapeHtml(issue.idReadable || '');
-          const title = escapeHtml(issue.summary || '');
-          const url = `https://edith.youtrack.cloud/issue/${issue.idReadable}`;
-          const age = issue.created ? relativeTime(new Date(issue.created).toISOString()) : '';
-
-          return `
-            <a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="linear-issue-row">
-              <span class="status-dot" style="background: ${escapeHtml(stateColor)};" title="${escapeHtml(stateName)}"></span>
-              <span class="text-muted text-[11px] flex-shrink-0">${id}</span>
-              <span class="text-text-secondary text-[12px] truncate flex-1">${title}</span>
-              ${age ? `<span class="text-muted text-[10px] flex-shrink-0 tracking-wide">${age}</span>` : ''}
-            </a>
-          `;
-        }).join('');
+        if (activityStrip) {
+          activityStrip.addEvents(issues.map(i => ({
+            id: `youtrack:${i.idReadable}`,
+            source: 'youtrack',
+            time: i.updated || i.created,
+            title: `${i.idReadable} · ${i.summary || ''}`,
+            url: `https://edith.youtrack.cloud/issue/${i.idReadable}`,
+          })));
+        }
       }
 
       async function fetchYouTrackData() {
@@ -1432,11 +1481,9 @@
         if (!mrs.length) {
           container.innerHTML = '';
           empty.classList.remove('hidden');
-          return;
-        }
-
-        empty.classList.add('hidden');
-        container.innerHTML = mrs.map(mr => {
+        } else {
+          empty.classList.add('hidden');
+          container.innerHTML = mrs.map(mr => {
           const ref = escapeHtml(mr.references?.short || `!${mr.iid}`);
           const title = escapeHtml(mr.title || '');
           const url = escapeHtml(mr.web_url || '');
@@ -1465,7 +1512,19 @@
               </div>
             </a>
           `;
-        }).join('');
+          }).join('');
+        }
+
+        if (activityStrip) {
+          activityStrip.addEvents(mrs.map(mr => ({
+            id: `gitlab:${mr.iid}`,
+            source: 'gitlab',
+            time: mr.updated_at,
+            title: `${mr.references?.short || '!' + mr.iid} · ${mr.title || ''}`,
+            url: mr.web_url,
+            weight: Math.min(1.5, 1 + (mr.changes_count || 0) / 500),
+          })));
+        }
       }
 
       async function fetchGitLabMRs() {
@@ -1609,6 +1668,371 @@
         }
       }
 
+      // ── Activity strip (WebGL particle feed) ──
+      const ACTIVITY_COLORS = {
+        gitlab:   { hex: '#E24329', rgb: [0xE2/255, 0x43/255, 0x29/255], label: 'GitLab'   },
+        linear:   { hex: '#5E6AD2', rgb: [0x5E/255, 0x6A/255, 0xD2/255], label: 'Linear'   },
+        youtrack: { hex: '#E20F86', rgb: [0xE2/255, 0x0F/255, 0x86/255], label: 'YouTrack' },
+      };
+
+      class ActivityStrip {
+        constructor(canvas, tooltipEl) {
+          this.canvas = canvas;
+          this.tooltipEl = tooltipEl;
+          this.tooltipMeta = document.getElementById('activity-tooltip-meta');
+          this.tooltipTitle = document.getElementById('activity-tooltip-title');
+          this.tooltipHint = document.getElementById('activity-tooltip-hint');
+
+          this.events = new Map();                 // id -> event data
+          this.layout = [];                        // cached per-frame [{id, x, y, size}]
+          this.hovered = null;                     // currently hovered event
+          this.pulse = new Map();                  // id -> pulse end timestamp
+          this.mouse = { x: -9999, y: -9999, inside: false };
+
+          this.WINDOW_MS = 24 * 60 * 60 * 1000;    // 24h
+          this.HOVER_RADIUS = 14;
+          this.MAX_PARTICLES = 500;
+          this.BASE_SIZE = 10;                     // in pixels (THREE.Points size)
+          this.PULSE_MS = 1200;
+
+          this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          this.targetFps = this.reducedMotion ? 15 : 60;
+          this.lastFrame = 0;
+
+          this.running = true;
+          this.disposed = false;
+
+          this._initThree();
+          this._buildSprite();
+          this._buildPoints();
+          this._drawHairlines();
+          this._bindEvents();
+          this._resize();
+          this._loop = this._loop.bind(this);
+          requestAnimationFrame(this._loop);
+        }
+
+        _initThree() {
+          this.renderer = new THREE.WebGLRenderer({
+            canvas: this.canvas,
+            alpha: true,
+            antialias: true,
+          });
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          this.scene = new THREE.Scene();
+          // Orthographic camera in pixel units (0..w, 0..h)
+          this.camera = new THREE.OrthographicCamera(0, 1, 1, 0, -10, 10);
+        }
+
+        _buildSprite() {
+          // Programmatic radial gradient → glowy particle texture
+          const size = 64;
+          const cvs = document.createElement('canvas');
+          cvs.width = cvs.height = size;
+          const ctx = cvs.getContext('2d');
+          const grd = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+          grd.addColorStop(0.0, 'rgba(255,255,255,1)');
+          grd.addColorStop(0.3, 'rgba(255,255,255,0.55)');
+          grd.addColorStop(0.6, 'rgba(255,255,255,0.15)');
+          grd.addColorStop(1.0, 'rgba(255,255,255,0)');
+          ctx.fillStyle = grd;
+          ctx.fillRect(0, 0, size, size);
+          this.spriteTexture = new THREE.CanvasTexture(cvs);
+          this.spriteTexture.needsUpdate = true;
+        }
+
+        _buildPoints() {
+          const geometry = new THREE.BufferGeometry();
+          const positions = new Float32Array(this.MAX_PARTICLES * 3);
+          const colors = new Float32Array(this.MAX_PARTICLES * 3);
+          const sizes = new Float32Array(this.MAX_PARTICLES);
+
+          geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+          geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+          geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+          geometry.setDrawRange(0, 0);
+
+          // Custom shader so we can use per-point size + the sprite texture + additive glow.
+          const material = new THREE.ShaderMaterial({
+            uniforms: {
+              uSprite: { value: this.spriteTexture },
+              uPixelRatio: { value: this.renderer.getPixelRatio() },
+            },
+            vertexShader: `
+              attribute float size;
+              varying vec3 vColor;
+              uniform float uPixelRatio;
+              void main() {
+                vColor = color;
+                vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                gl_Position = projectionMatrix * mv;
+                gl_PointSize = size * uPixelRatio;
+              }
+            `,
+            fragmentShader: `
+              varying vec3 vColor;
+              uniform sampler2D uSprite;
+              void main() {
+                vec4 tex = texture2D(uSprite, gl_PointCoord);
+                gl_FragColor = vec4(vColor, 1.0) * tex;
+                if (gl_FragColor.a < 0.01) discard;
+              }
+            `,
+            transparent: true,
+            depthWrite: false,
+            depthTest: false,
+            blending: THREE.AdditiveBlending,
+            vertexColors: true,
+          });
+
+          this.points = new THREE.Points(geometry, material);
+          this.scene.add(this.points);
+        }
+
+        _drawHairlines() {
+          // Six-hour vertical guides (4 lines across 24h window).
+          const geom = new THREE.BufferGeometry();
+          const positions = new Float32Array(4 * 2 * 3);
+          geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+          const mat = new THREE.LineBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.06,
+          });
+          this.hairlines = new THREE.LineSegments(geom, mat);
+          this.scene.add(this.hairlines);
+        }
+
+        _layoutHairlines() {
+          const pos = this.hairlines.geometry.attributes.position.array;
+          // 4 segments at 6h, 12h, 18h, 24h marks measured from "now" (right edge).
+          for (let i = 0; i < 4; i++) {
+            const t = (i + 1) / 4;               // 0.25, 0.5, 0.75, 1.0
+            const x = this.width - t * this.width;
+            const idx = i * 6;
+            pos[idx    ] = x; pos[idx + 1] = 2;                 pos[idx + 2] = 0;
+            pos[idx + 3] = x; pos[idx + 4] = this.height - 2;   pos[idx + 5] = 0;
+          }
+          this.hairlines.geometry.attributes.position.needsUpdate = true;
+        }
+
+        _bindEvents() {
+          this.canvas.addEventListener('pointermove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouse.x = e.clientX - rect.left;
+            this.mouse.y = e.clientY - rect.top;
+            this.mouse.clientX = e.clientX;
+            this.mouse.clientY = e.clientY;
+            this.mouse.inside = true;
+          });
+          this.canvas.addEventListener('pointerleave', () => {
+            this.mouse.inside = false;
+            this._updateTooltip(null);
+          });
+          this.canvas.addEventListener('click', () => {
+            if (this.hovered && this.hovered.url) {
+              window.open(this.hovered.url, '_blank', 'noopener');
+            }
+          });
+
+          this._ro = new ResizeObserver(() => this._resize());
+          this._ro.observe(this.canvas.parentElement);
+
+          document.addEventListener('visibilitychange', () => {
+            this.running = !document.hidden;
+            if (this.running) requestAnimationFrame(this._loop);
+          });
+        }
+
+        _resize() {
+          const parent = this.canvas.parentElement;
+          const w = parent.clientWidth || 1;
+          const h = parent.clientHeight || 1;
+          this.width = w;
+          this.height = h;
+          this.renderer.setSize(w, h, false);
+          this.camera.left = 0;
+          this.camera.right = w;
+          this.camera.top = h;
+          this.camera.bottom = 0;
+          this.camera.updateProjectionMatrix();
+          this._layoutHairlines();
+        }
+
+        addEvents(events) {
+          const now = Date.now();
+          for (const ev of events) {
+            if (!ev || !ev.id || !ev.source || !ACTIVITY_COLORS[ev.source]) continue;
+            const t = ev.time ? new Date(ev.time).getTime() : NaN;
+            if (!Number.isFinite(t)) continue;
+            if (now - t > this.WINDOW_MS) continue;
+
+            const prev = this.events.get(ev.id);
+            this.events.set(ev.id, {
+              id: ev.id,
+              source: ev.source,
+              time: t,
+              title: ev.title || '',
+              url: ev.url || '',
+              weight: typeof ev.weight === 'number' ? ev.weight : 1,
+              priority: ev.priority || 0,
+            });
+            if (!prev && !this.reducedMotion) {
+              this.pulse.set(ev.id, now + this.PULSE_MS);
+            }
+          }
+        }
+
+        _hash(id) {
+          // djb2-ish, stable Y jitter per id
+          let h = 5381;
+          for (let i = 0; i < id.length; i++) h = ((h << 5) + h) + id.charCodeAt(i);
+          return ((h >>> 0) % 1000) / 1000;
+        }
+
+        _sizeFor(ev, pulseScale) {
+          // Priority / weight boost: urgent=1, high=2, medium=3 in Linear
+          let mul = ev.weight || 1;
+          if (ev.priority === 1) mul *= 1.5;
+          else if (ev.priority === 2) mul *= 1.25;
+          return this.BASE_SIZE * mul * pulseScale;
+        }
+
+        _relayout() {
+          const now = Date.now();
+          const positions = this.points.geometry.attributes.position.array;
+          const colors = this.points.geometry.attributes.color.array;
+          const sizes = this.points.geometry.attributes.size.array;
+
+          this.layout.length = 0;
+          let i = 0;
+          for (const ev of this.events.values()) {
+            if (i >= this.MAX_PARTICLES) break;
+            const age = now - ev.time;
+            if (age > this.WINDOW_MS) continue;
+
+            // X: right edge = now, left edge = 24h ago
+            const xFrac = 1 - age / this.WINDOW_MS;
+            const x = xFrac * this.width;
+            // Y: stable hash, padded so dots don't clip top/bottom
+            const pad = 14;
+            const y = pad + this._hash(ev.id) * (this.height - pad * 2);
+
+            // Pulse scale (1 → 1.6 → 1, eased)
+            let pulseScale = 1;
+            const pulseEnd = this.pulse.get(ev.id);
+            if (pulseEnd) {
+              const remaining = pulseEnd - now;
+              if (remaining <= 0) {
+                this.pulse.delete(ev.id);
+              } else {
+                const p = remaining / this.PULSE_MS;      // 1 → 0
+                pulseScale = 1 + 0.6 * Math.sin(p * Math.PI); // peaks at 1.6
+              }
+            }
+
+            // Fade by age (subtle)
+            const fade = 0.35 + 0.65 * xFrac;
+            const rgb = ACTIVITY_COLORS[ev.source].rgb;
+
+            positions[i * 3    ] = x;
+            positions[i * 3 + 1] = y;
+            positions[i * 3 + 2] = 0;
+
+            colors[i * 3    ] = rgb[0] * fade;
+            colors[i * 3 + 1] = rgb[1] * fade;
+            colors[i * 3 + 2] = rgb[2] * fade;
+
+            sizes[i] = this._sizeFor(ev, pulseScale);
+
+            this.layout.push({ id: ev.id, x, y, size: sizes[i], event: ev });
+            i++;
+          }
+
+          this.points.geometry.setDrawRange(0, i);
+          this.points.geometry.attributes.position.needsUpdate = true;
+          this.points.geometry.attributes.color.needsUpdate = true;
+          this.points.geometry.attributes.size.needsUpdate = true;
+        }
+
+        _hitTest() {
+          if (!this.mouse.inside) { this._updateTooltip(null); return; }
+          // Hit test in canvas pixel space; note Y is flipped (camera top = h)
+          const mx = this.mouse.x;
+          const my = this.height - this.mouse.y;
+          let best = null;
+          let bestDist = this.HOVER_RADIUS * this.HOVER_RADIUS;
+          for (const p of this.layout) {
+            const dx = p.x - mx;
+            const dy = p.y - my;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < bestDist) {
+              bestDist = d2;
+              best = p;
+            }
+          }
+          this._updateTooltip(best ? best.event : null);
+        }
+
+        _updateTooltip(ev) {
+          if (!ev) {
+            this.hovered = null;
+            this.tooltipEl.classList.add('hidden');
+            this.canvas.style.cursor = '';
+            return;
+          }
+          if (this.hovered && this.hovered.id === ev.id) {
+            // just reposition
+            this._positionTooltip();
+            return;
+          }
+          this.hovered = ev;
+          const cfg = ACTIVITY_COLORS[ev.source];
+          this.tooltipEl.style.borderLeftColor = cfg.hex;
+          this.tooltipMeta.innerHTML =
+            `<span style="color: ${cfg.hex};">${cfg.label}</span>` +
+            `<span class="text-muted">·</span>` +
+            `<span class="text-muted">${relativeTime(new Date(ev.time).toISOString())}</span>`;
+          this.tooltipTitle.textContent = ev.title || '(untitled)';
+          this.tooltipHint.textContent = ev.url ? 'Click to open' : '';
+          this.tooltipEl.classList.remove('hidden');
+          this.canvas.style.cursor = ev.url ? 'pointer' : 'default';
+          this._positionTooltip();
+        }
+
+        _positionTooltip() {
+          if (!this.hovered || !this.mouse.inside) return;
+          // Measure tooltip first
+          const rect = this.tooltipEl.getBoundingClientRect();
+          const margin = 10;
+          let x = this.mouse.clientX + 14;
+          let y = this.mouse.clientY + 14;
+          if (x + rect.width + margin > window.innerWidth) {
+            x = this.mouse.clientX - rect.width - 14;
+          }
+          if (y + rect.height + margin > window.innerHeight) {
+            y = this.mouse.clientY - rect.height - 14;
+          }
+          this.tooltipEl.style.left = x + 'px';
+          this.tooltipEl.style.top = y + 'px';
+        }
+
+        _loop(ts) {
+          if (this.disposed) return;
+          if (!this.running) return;
+          const interval = 1000 / this.targetFps;
+          if (ts - this.lastFrame >= interval) {
+            this.lastFrame = ts;
+            this._relayout();
+            this._hitTest();
+            this.renderer.render(this.scene, this.camera);
+          }
+          requestAnimationFrame(this._loop);
+        }
+      }
+
+      let activityStrip = null;
+
       // ── Dashboard init (called after successful auth) ──
       let dashboardInitialized = false;
 
@@ -1616,11 +2040,28 @@
         if (dashboardInitialized) return;
         dashboardInitialized = true;
 
+        // Activity strip (WebGL particle feed)
+        try {
+          activityStrip = new ActivityStrip(
+            document.getElementById('activity-canvas'),
+            document.getElementById('activity-tooltip')
+          );
+        } catch (e) {
+          console.warn('ActivityStrip init failed:', e);
+          document.getElementById('activity-strip').style.display = 'none';
+        }
+
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
         tl.fromTo('#header',
           { opacity: 0, y: -8 },
           { opacity: 1, y: 0, duration: 0.6 }
+        );
+
+        tl.fromTo('#activity-strip',
+          { opacity: 0, y: 8 },
+          { opacity: 1, y: 0, duration: 0.5 },
+          '-=0.3'
         );
 
         tl.fromTo('#search-form',
