@@ -388,19 +388,6 @@
             Health
           </a>
           <a
-            href="icon-scanner.html"
-            title="Icon Scanner"
-            class="search-btn h-8 px-3 rounded-lg flex items-center gap-2 text-[11px] text-muted-light cursor-pointer tracking-wide no-underline"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
-            Icons
-          </a>
-          <a
             href="vue-mapper.html"
             title="Vue Mapper"
             class="search-btn h-8 px-3 rounded-lg flex items-center gap-2 text-[11px] text-muted-light cursor-pointer tracking-wide no-underline"
@@ -903,7 +890,7 @@
         return div.innerHTML;
       }
 
-      async function linearQuery(query) {
+      async function linearQuery(queryId, variables) {
         const token = getToken();
         const res = await fetch(WORKER_URL, {
           method: 'POST',
@@ -911,7 +898,7 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({ queryId, variables }),
         });
 
         // Token rejected — force re-login
@@ -932,54 +919,14 @@
       }
 
       async function fetchMyIssues() {
-        const query = `{
-          viewer {
-            assignedIssues(
-              first: 15
-              orderBy: updatedAt
-              filter: { state: { type: { nin: ["completed", "canceled"] } } }
-            ) {
-              nodes {
-                identifier
-                title
-                priority
-                updatedAt
-                state { name color }
-                url
-              }
-            }
-          }
-        }`;
-        const data = await linearQuery(query);
+        const data = await linearQuery('myIssues');
         return data.viewer.assignedIssues.nodes;
       }
 
       async function fetchProjectUpdates() {
-  const query = `{
-    projects(
-      first: 50
-      filter: {
-        members: { some: { isMe: { eq: true } } }
-        state: { nin: ["completed", "canceled"] }
+        const data = await linearQuery('projectUpdates');
+        return data.projects.nodes.filter(p => p.projectUpdates.nodes.length > 0);
       }
-    ) {
-      nodes {
-        name
-        url
-        projectUpdates(first: 1, orderBy: createdAt) {
-          nodes {
-            body
-            createdAt
-            health
-            user { name }
-          }
-        }
-      }
-    }
-  }`;
-  const data = await linearQuery(query);
-  return data.projects.nodes.filter(p => p.projectUpdates.nodes.length > 0);
-}
 
       // ── Rendering helpers ──
       function showLinearState(state) {

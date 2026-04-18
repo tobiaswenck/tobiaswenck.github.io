@@ -529,7 +529,7 @@
       }
 
       // ── API helpers ──
-      async function linearQuery(query) {
+      async function linearQuery(queryId, variables) {
         const token = getToken();
         const res = await fetch(WORKER_URL, {
           method: 'POST',
@@ -537,7 +537,7 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({ queryId, variables }),
         });
 
         if (res.status === 401) {
@@ -594,27 +594,7 @@
 
       async function fetchWeeklyLinearIssues() {
         const { start } = getReportRange();
-        const query = `{
-          viewer {
-            assignedIssues(
-              first: 50
-              orderBy: updatedAt
-              filter: {
-                state: { type: { eq: "completed" } }
-                completedAt: { gte: "${start.toISOString()}" }
-              }
-            ) {
-              nodes {
-                identifier
-                title
-                completedAt
-                state { name color }
-                url
-              }
-            }
-          }
-        }`;
-        const data = await linearQuery(query);
+        const data = await linearQuery('weeklyCompleted', { gte: start.toISOString() });
         return data.viewer.assignedIssues.nodes;
       }
 
@@ -634,21 +614,10 @@
         const { start } = getReportRange();
         const prevStart = new Date(start);
         prevStart.setDate(prevStart.getDate() - 7);
-        const query = `{
-          viewer {
-            assignedIssues(
-              first: 50
-              orderBy: updatedAt
-              filter: {
-                state: { type: { eq: "completed" } }
-                completedAt: { gte: "${prevStart.toISOString()}", lt: "${start.toISOString()}" }
-              }
-            ) {
-              nodes { identifier }
-            }
-          }
-        }`;
-        const data = await linearQuery(query);
+        const data = await linearQuery('weeklyCompleted', {
+          gte: prevStart.toISOString(),
+          lt: start.toISOString(),
+        });
         return data.viewer.assignedIssues.nodes;
       }
 

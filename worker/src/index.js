@@ -143,86 +143,74 @@ async function clearAuthAttempts(ip, env) {
   await env.RATE_LIMIT.delete(`auth:${ip}`);
 }
 
-// ── Query allowlist ──
-// Only these root fields may be queried. Mutations, subscriptions,
-// and introspection are blocked so the proxy can't be abused as a
-// full-access GraphQL gateway.
+// ── Persisted Linear queries ──
+// The client never sends raw GraphQL. Instead it sends a queryId + variables,
+// and the worker looks up a pre-approved query string. This eliminates the
+// proxy-as-GraphQL-gateway risk entirely (no introspection, no mutations,
+// no unexpected root fields — all by construction).
 
-const ALLOWED_ROOT_FIELDS = new Set(["viewer", "projects"]);
-
-function isQueryAllowed(query) {
-  const normalized = query.replace(/\s+/g, " ").trim();
-  const lower = normalized.toLowerCase();
-
-  // Block mutations and subscriptions
-  if (/^(mutation|subscription)\b/.test(lower)) return false;
-
-  // Block introspection anywhere in the query
-  if (/__schema\b/.test(lower) || /__type\b/.test(lower)) return false;
-
-  // Strip optional `query OperationName(…)` prefix to get to the selection set
-  let body = normalized;
-  const queryPrefix = body.match(/^query\s+\w*\s*(\([^)]*\)\s*)?/i);
-  if (queryPrefix) {
-    body = body.slice(queryPrefix[0].length);
-  }
-
-  // Must start with `{`
-  if (!body.startsWith("{")) return false;
-
-  // Extract all top-level field names from the selection set.
-  // We walk character-by-character and track brace depth to only
-  // capture identifiers at depth === 1 (the root fields).
-  // Parentheses are also tracked so that GraphQL arguments like
-  // `projects(first: 50, ...)` don't get misread as root fields.
-  const rootFields = [];
-  let depth = 0;
-  let parenDepth = 0;
-  let i = 0;
-  while (i < body.length) {
-    const ch = body[i];
-    if (ch === "(") {
-      parenDepth++;
-      i++;
-    } else if (ch === ")") {
-      parenDepth--;
-      i++;
-    } else if (ch === "{") {
-      depth++;
-      i++;
-    } else if (ch === "}") {
-      depth--;
-      i++;
-    } else if (depth === 1 && parenDepth === 0) {
-      // Try to match a field name (optionally preceded by alias: )
-      const slice = body.slice(i);
-      const fieldMatch = slice.match(/^(\w+)\s*:/);
-      if (fieldMatch) {
-        // This could be an alias — the real field name follows the colon
-        i += fieldMatch[0].length;
-        const afterColon = body.slice(i).match(/^\s*(\w+)/);
-        if (afterColon) {
-          rootFields.push(afterColon[1].toLowerCase());
-          i += afterColon[0].length;
-        }
-      } else {
-        const nameMatch = slice.match(/^(\w+)/);
-        if (nameMatch) {
-          rootFields.push(nameMatch[1].toLowerCase());
-          i += nameMatch[0].length;
-        } else {
-          i++;
+const PERSISTED_QUERIES = {
+  myIssues: `{
+    viewer {
+      assignedIssues(
+        first: 15
+        orderBy: updatedAt
+        filter: { state: { type: { nin: ["completed", "canceled"] } } }
+      ) {
+        nodes {
+          identifier
+          title
+          priority
+          updatedAt
+          state { name color }
+          url
         }
       }
-    } else {
-      i++;
     }
-  }
-
-  // Reject if no root fields found or any root field is not in the allowlist
-  if (rootFields.length === 0) return false;
-  return rootFields.every((f) => ALLOWED_ROOT_FIELDS.has(f));
-}
+  }`,
+  projectUpdates: `{
+    projects(
+      first: 50
+      filter: {
+        members: { some: { isMe: { eq: true } } }
+        state: { nin: ["completed", "canceled"] }
+      }
+    ) {
+      nodes {
+        name
+        url
+        projectUpdates(first: 1, orderBy: createdAt) {
+          nodes {
+            body
+            createdAt
+            health
+            user { name }
+          }
+        }
+      }
+    }
+  }`,
+  weeklyCompleted: `query WeeklyCompleted($gte: DateTime!, $lt: DateTime) {
+    viewer {
+      assignedIssues(
+        first: 50
+        orderBy: updatedAt
+        filter: {
+          state: { type: { eq: "completed" } }
+          completedAt: { gte: $gte, lt: $lt }
+        }
+      ) {
+        nodes {
+          identifier
+          title
+          completedAt
+          state { name color }
+          url
+        }
+      }
+    }
+  }`,
+};
 
 // ── GitLab project allowlist ──
 
@@ -291,14 +279,12 @@ async function handleProxy(request, env) {
     return jsonError("Invalid JSON body", 400, env);
   }
 
-  if (!body.query || typeof body.query !== "string") {
-    return jsonError("Missing or invalid 'query' field", 400, env);
+  const { queryId, variables } = body;
+  if (!queryId || typeof queryId !== "string" || !Object.prototype.hasOwnProperty.call(PERSISTED_QUERIES, queryId)) {
+    return jsonError("Unknown queryId", 403, env);
   }
 
-  // ── Query allowlist ──
-  if (!isQueryAllowed(body.query)) {
-    return jsonError("Query not allowed", 403, env);
-  }
+  const query = PERSISTED_QUERIES[queryId];
 
   // ── Proxy to Linear ──
   const linearRes = await fetch(LINEAR_GQL, {
@@ -307,7 +293,7 @@ async function handleProxy(request, env) {
       "Content-Type": "application/json",
       Authorization: env.LINEAR_API_KEY,
     },
-    body: JSON.stringify({ query: body.query, variables: body.variables }),
+    body: JSON.stringify({ query, variables: variables || {} }),
   });
 
   const data = await linearRes.text();
@@ -418,7 +404,6 @@ async function handleGitLab(request, env) {
   glUrl.searchParams.set("state", "opened");
   glUrl.searchParams.set("per_page", "50");
   glUrl.searchParams.set("order_by", "updated_at");
-  glUrl.searchParams.set("view", "simple");
 
   const glRes = await fetch(glUrl.toString(), {
     headers: {
@@ -534,6 +519,14 @@ async function handleGitLabFile(request, env) {
   const { projectPath, filePath, ref } = body;
   if (!projectPath || !filePath || typeof filePath !== "string") {
     return jsonError("Missing projectPath or filePath", 400, env);
+  }
+
+  if (!ALLOWED_PROJECT_PATHS.has(projectPath)) {
+    return jsonError("Project not allowed", 403, env);
+  }
+
+  if (filePath.includes("..") || filePath.startsWith("/")) {
+    return jsonError("Invalid filePath", 400, env);
   }
 
   const fileAllowed =
