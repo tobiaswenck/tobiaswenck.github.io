@@ -378,6 +378,22 @@ async function handleYouTrack(request, env) {
 // ── GitLab proxy ──
 
 const GITLAB_BASE = "https://gitlab.dev.edith-bahn.de";
+const GITLAB_GROUP = "Rail-Network";
+const GITLAB_MR_CAP = 40; // stay under Cloudflare's 50-subrequest limit
+const FRONTEND_FILE_RE = /\.(css|scss|sass|less|ts|tsx|js|jsx|mjs|cjs|vue)$/i;
+
+/** Count +/- lines in a unified diff string, ignoring the file header lines (+++/---). */
+function countDiffLines(diff) {
+  if (!diff || typeof diff !== "string") return { added: 0, removed: 0 };
+  let added = 0;
+  let removed = 0;
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("+++") || line.startsWith("---")) continue;
+    if (line.startsWith("+")) added++;
+    else if (line.startsWith("-")) removed++;
+  }
+  return { added, removed };
+}
 
 async function handleGitLab(request, env) {
   // ── Auth check ──
@@ -395,13 +411,14 @@ async function handleGitLab(request, env) {
     );
   }
 
-  // ── Build GitLab REST API URL ──
-  // Fetch open, non-draft MRs where the token owner is a reviewer
-  const glUrl = new URL(`${GITLAB_BASE}/api/v4/merge_requests`);
-  glUrl.searchParams.set("scope", "reviews_for_me");
+  // ── Fetch all open MRs across the whole group ──
+  const glUrl = new URL(
+    `${GITLAB_BASE}/api/v4/groups/${encodeURIComponent(GITLAB_GROUP)}/merge_requests`,
+  );
   glUrl.searchParams.set("state", "opened");
-  glUrl.searchParams.set("per_page", "25");
+  glUrl.searchParams.set("per_page", "50");
   glUrl.searchParams.set("order_by", "updated_at");
+  glUrl.searchParams.set("view", "simple");
 
   const glRes = await fetch(glUrl.toString(), {
     headers: {
@@ -410,15 +427,83 @@ async function handleGitLab(request, env) {
     },
   });
 
-  const data = await glRes.text();
+  if (!glRes.ok) {
+    const errText = await glRes.text();
+    return jsonResponse(
+      { error: `GitLab ${glRes.status}`, detail: errText },
+      glRes.status,
+      env,
+    );
+  }
 
-  return new Response(data, {
-    status: glRes.status,
-    headers: {
-      "Content-Type": "application/json",
-      ...corsHeaders(env),
-    },
-  });
+  const allMrs = await glRes.json();
+  const truncated = allMrs.length > GITLAB_MR_CAP;
+  const mrs = allMrs.slice(0, GITLAB_MR_CAP);
+
+  if (truncated) {
+    console.warn(
+      `GitLab: got ${allMrs.length} open MRs, capping at ${GITLAB_MR_CAP} to stay under subrequest limit`,
+    );
+  }
+
+  // ── For each MR, fetch changes in parallel, filter by file extension ──
+  const enriched = await Promise.all(
+    mrs.map(async (mr) => {
+      try {
+        const changesUrl = `${GITLAB_BASE}/api/v4/projects/${mr.project_id}/merge_requests/${mr.iid}/changes`;
+        const cRes = await fetch(changesUrl, {
+          headers: {
+            Accept: "application/json",
+            "PRIVATE-TOKEN": env.GITLAB_TOKEN,
+          },
+        });
+        if (!cRes.ok) return null;
+        const detail = await cRes.json();
+        const changes = Array.isArray(detail.changes) ? detail.changes : [];
+
+        const matched = changes
+          .map((c) => c.new_path || c.old_path || "")
+          .filter((p) => FRONTEND_FILE_RE.test(p));
+
+        if (matched.length === 0) return null;
+
+        let added = 0;
+        let removed = 0;
+        for (const c of changes) {
+          const stats = countDiffLines(c.diff);
+          added += stats.added;
+          removed += stats.removed;
+        }
+
+        const project_name =
+          mr.references?.full?.split("!")[0]?.split("/").pop() || "";
+
+        // detailed_merge_status is on the detail response; merge base MR + merge info
+        return {
+          ...mr,
+          project_name,
+          lines_added: added,
+          lines_removed: removed,
+          matched_files: matched,
+          has_conflicts: detail.has_conflicts ?? mr.has_conflicts,
+          detailed_merge_status:
+            detail.detailed_merge_status ?? mr.detailed_merge_status,
+          merge_status: detail.merge_status ?? mr.merge_status,
+          changes_count: detail.changes_count ?? mr.changes_count,
+        };
+      } catch (e) {
+        console.warn(
+          `GitLab: failed to fetch changes for !${mr.iid} in project ${mr.project_id}`,
+          e,
+        );
+        return null;
+      }
+    }),
+  );
+
+  const filtered = enriched.filter(Boolean);
+
+  return jsonResponse(filtered, 200, env);
 }
 
 // ── GitLab file fetch (for package.json etc.) ──
