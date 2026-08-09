@@ -1,0 +1,2427 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Motion Editor</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { 'geist': ['"Geist Mono"', 'monospace'] },
+            colors: {
+              'dash-bg': '#0b0b0d',
+              'surface': '#141416',
+              'surface-hover': '#19191c',
+              'border': 'rgba(255, 255, 255, 0.06)',
+              'muted': '#505058',
+              'muted-light': '#7e7e86',
+              'text-primary': '#ededef',
+              'text-secondary': '#a0a0a8',
+            },
+          },
+        },
+      }
+    </script>
+
+    <style>
+      body { scrollbar-width: none; }
+      body::-webkit-scrollbar { display: none; }
+
+      #login-overlay {
+        position: fixed; inset: 0; z-index: 100;
+        background: #0b0b0d;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #login-overlay.hidden { display: none; }
+      #login-box input {
+        background: #0e0e10;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      #login-box input:focus { border-color: rgba(255, 255, 255, 0.12); outline: none; }
+
+      .editor-shell {
+        display: none;
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden;
+      }
+      .editor-shell.open { display: flex; flex-direction: column; }
+
+      .sidebar {
+        width: 260px;
+        background: #101012;
+        border-right: 1px solid rgba(255,255,255,0.06);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .right-panel {
+        width: 320px;
+        background: #101012;
+        border-left: 1px solid rgba(255,255,255,0.06);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .right-panel.hidden-panel { display: none; }
+
+      .tab-btn {
+        font-size: 10px;
+        padding: 5px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        color: #505058;
+        background: transparent;
+        border: none;
+        font-family: inherit;
+      }
+      .tab-btn.active {
+        background: rgba(255,255,255,0.06);
+        color: #ededef;
+      }
+
+      .sidebar-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: background 0.15s;
+        font-size: 12px;
+        color: #a0a0a8;
+      }
+      .sidebar-item:hover { background: rgba(255,255,255,0.04); }
+      .sidebar-item.active { background: rgba(94, 106, 210, 0.15); color: #ededef; }
+
+      .sidebar-search {
+        background: #0e0e10;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .sidebar-search:focus {
+        border-color: rgba(255, 255, 255, 0.12);
+        outline: none;
+      }
+
+      .group-header {
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #505058;
+        padding: 12px 12px 4px;
+      }
+
+      .panel-section {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+      }
+      .panel-label {
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #505058;
+        margin-bottom: 8px;
+      }
+
+      .toolbar-btn {
+        background: rgba(20, 20, 22, 0.85);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 10px;
+        color: #7e7e86;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+        font-family: inherit;
+      }
+      .toolbar-btn:hover { background: rgba(30, 30, 34, 0.9); color: #a0a0a8; }
+      .toolbar-btn.active {
+        border-color: rgba(94, 106, 210, 0.4);
+        color: #5E6AD2;
+        background: rgba(94, 106, 210, 0.08);
+      }
+      .toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      .preview-stage {
+        position: relative;
+        flex: 1;
+        background:
+          linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+          #0e0e10;
+        background-size: 20px 20px;
+        overflow: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 0;
+      }
+      .preview-stage.selecting { cursor: crosshair; }
+      .preview-stage.selecting * { cursor: crosshair !important; }
+      .preview-stage.gallery-mode {
+        display: block;
+        align-items: unset;
+        justify-content: unset;
+        padding: 24px;
+        background: #0b0b0d;
+        background-image: none;
+      }
+
+      #selection-overlay {
+        position: absolute;
+        pointer-events: none;
+        border: 1.5px solid #5E6AD2;
+        background: rgba(94, 106, 210, 0.08);
+        border-radius: 2px;
+        display: none;
+        z-index: 50;
+        box-sizing: border-box;
+      }
+      #selection-overlay.visible { display: block; }
+      #selection-overlay.locked {
+        border-color: #22c55e;
+        background: rgba(34, 197, 94, 0.08);
+      }
+
+      .placeholder-root { display: none; position: relative; }
+      .placeholder-root.active { display: block; }
+      .placeholder-templates { display: none !important; }
+
+      .ph-btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 10px 18px; background: #5E6AD2; color: #fff;
+        border: none; border-radius: 8px; font-family: inherit; font-size: 13px; cursor: pointer;
+      }
+      .ph-btn-icon { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+
+      .ph-toggle {
+        width: 44px; height: 24px; background: #2a2a2e; border-radius: 12px;
+        position: relative; cursor: pointer; border: 1px solid rgba(255,255,255,0.08);
+      }
+      .ph-toggle-knob {
+        width: 18px; height: 18px; background: #ededef; border-radius: 50%;
+        position: absolute; top: 2px; left: 3px;
+      }
+
+      .ph-badge-wrap { position: relative; display: inline-block; }
+      .ph-badge-icon {
+        width: 36px; height: 36px; background: #1a1a1e;
+        border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+        display: flex; align-items: center; justify-content: center; color: #a0a0a8;
+      }
+      .ph-badge {
+        position: absolute; top: -4px; right: -4px;
+        min-width: 16px; height: 16px; background: #E24329; color: #fff;
+        font-size: 9px; font-weight: 700; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center; padding: 0 4px;
+      }
+
+      .ph-dropdown {
+        background: #141416; border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px; width: 180px; overflow: hidden;
+      }
+      .ph-dropdown-trigger {
+        padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
+        color: #ededef; font-size: 12px; cursor: pointer;
+      }
+      .ph-dropdown-menu { border-top: 1px solid rgba(255,255,255,0.06); }
+      .ph-dropdown-item { padding: 8px 14px; font-size: 12px; color: #a0a0a8; cursor: pointer; }
+      .ph-dropdown-item:hover { background: rgba(255,255,255,0.04); }
+
+      .ph-card {
+        background: #141416; border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px; width: 240px; overflow: hidden;
+      }
+      .ph-card-header { padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+      .ph-card-avatar { width: 32px; height: 32px; background: #5E6AD2; border-radius: 8px; flex-shrink: 0; }
+      .ph-card-title { font-size: 13px; color: #ededef; }
+      .ph-card-sub { font-size: 10px; color: #505058; margin-top: 2px; }
+      .ph-card-detail { padding: 0 16px 14px; font-size: 11px; color: #a0a0a8; line-height: 1.5; }
+
+      .ph-spinner {
+        width: 32px; height: 32px;
+        border: 3px solid rgba(255,255,255,0.08); border-top-color: #5E6AD2; border-radius: 50%;
+      }
+
+      .ph-tabs {
+        display: flex; gap: 0; background: #141416;
+        border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 4px; position: relative;
+      }
+      .ph-tab { padding: 6px 16px; font-size: 11px; color: #7e7e86; cursor: pointer; position: relative; z-index: 1; }
+      .ph-tab.active { color: #ededef; }
+      .ph-tab-indicator {
+        position: absolute; top: 4px; left: 4px; height: calc(100% - 8px); width: 60px;
+        background: rgba(94, 106, 210, 0.2); border-radius: 6px; z-index: 0;
+      }
+
+      .ph-toolbar {
+        display: flex; gap: 4px; background: #141416;
+        border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px;
+      }
+      .ph-toolbar-btn {
+        width: 32px; height: 32px; border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+        color: #7e7e86; cursor: pointer; border: none; background: transparent;
+      }
+      .ph-toolbar-btn:hover { background: rgba(255,255,255,0.04); color: #ededef; }
+
+      .ph-toast {
+        display: flex; align-items: center; gap: 10px;
+        background: #141416; border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px; padding: 12px 16px; min-width: 220px;
+      }
+      .ph-toast-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+      .ph-toast-text { font-size: 12px; color: #ededef; }
+
+      .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px; max-width: 1100px; margin: 0 auto;
+      }
+      .preset-card {
+        background: #141416; border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 14px; overflow: hidden; cursor: pointer;
+        transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+        display: flex; flex-direction: column;
+      }
+      .preset-card:hover {
+        border-color: rgba(255,255,255,0.12);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      }
+      .preset-card-preview {
+        height: 140px; display: flex; align-items: center; justify-content: center;
+        background:
+          linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px),
+          #0e0e10;
+        background-size: 16px 16px;
+        position: relative; overflow: hidden;
+      }
+      .preset-card-preview .placeholder-root { display: block !important; transform: scale(0.95); }
+      .preset-card-meta {
+        padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.04);
+        display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+      }
+      .preset-card-meta h3 { font-size: 13px; font-weight: 600; color: #ededef; margin: 0 0 4px; }
+      .preset-card-meta p { font-size: 11px; color: #505058; margin: 0; line-height: 1.4; }
+      .kind-tag {
+        display: inline-block; font-size: 9px; font-weight: 600; letter-spacing: 0.04em;
+        padding: 2px 6px; border-radius: 4px; margin-top: 6px;
+      }
+      .kind-tag.transition {
+        background: rgba(94, 106, 210, 0.15); color: #5E6AD2;
+        border: 1px solid rgba(94, 106, 210, 0.3);
+      }
+      .kind-tag.state {
+        background: rgba(245, 158, 11, 0.12); color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.25);
+      }
+      .card-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+      .animate-btn {
+        background: rgba(94, 106, 210, 0.12); border: 1px solid rgba(94, 106, 210, 0.25);
+        color: #5E6AD2; border-radius: 6px; padding: 5px 10px;
+        font-size: 10px; font-family: inherit; cursor: pointer;
+      }
+      .animate-btn:hover { background: rgba(94, 106, 210, 0.22); }
+      .animate-btn.secondary {
+        background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); color: #7e7e86;
+      }
+
+      .playback-bar {
+        background: #101012; border-top: 1px solid rgba(255,255,255,0.06);
+        padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+      }
+      .playback-bar.hidden-bar { display: none; }
+
+      .scrubber {
+        flex: 1; -webkit-appearance: none; appearance: none;
+        height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; outline: none; cursor: pointer;
+      }
+      .scrubber::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+        background: #5E6AD2; cursor: pointer;
+      }
+      .scrubber::-moz-range-thumb {
+        width: 12px; height: 12px; border-radius: 50%; background: #5E6AD2; border: none; cursor: pointer;
+      }
+
+      .prop-field label {
+        display: block; font-size: 9px; color: #505058; margin-bottom: 2px;
+        text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      .prop-field input, .prop-field select {
+        width: 100%; height: 28px; background: #0e0e10;
+        border: 1px solid rgba(255,255,255,0.06); border-radius: 6px;
+        color: #ededef; font-size: 11px; font-family: inherit; padding: 0 8px;
+      }
+      .prop-field input:focus, .prop-field select:focus {
+        border-color: rgba(255,255,255,0.12); outline: none;
+      }
+
+      .target-item {
+        padding: 8px 10px; border-radius: 6px; cursor: pointer;
+        border: 1px solid transparent; margin-bottom: 4px;
+      }
+      .target-item:hover { background: rgba(255,255,255,0.03); }
+      .target-item.active {
+        background: rgba(94, 106, 210, 0.1); border-color: rgba(94, 106, 210, 0.3);
+      }
+
+      .export-area {
+        background: #0e0e10; border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px; padding: 10px; font-size: 10px; color: #a0a0a8;
+        max-height: 220px; overflow: auto; white-space: pre;
+        font-family: "Geist Mono", monospace; line-height: 1.5; scrollbar-width: thin;
+      }
+
+      .warn-banner {
+        background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.2);
+        border-radius: 6px; padding: 8px 10px; font-size: 10px; color: #eab308;
+        line-height: 1.4; margin-top: 6px;
+      }
+
+      .source-view {
+        background: #0e0e10; border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px; padding: 12px; font-size: 10px; color: #a0a0a8;
+        max-height: 100%; overflow: auto; white-space: pre;
+        font-family: "Geist Mono", monospace; line-height: 1.5; scrollbar-width: thin;
+      }
+
+      .info-note {
+        background: rgba(94, 106, 210, 0.08); border: 1px solid rgba(94, 106, 210, 0.2);
+        border-radius: 6px; padding: 8px 10px; font-size: 10px; color: #5E6AD2; line-height: 1.4;
+      }
+
+      .quick-slider-row {
+        display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+      }
+      .quick-slider-row label { font-size: 10px; color: #7e7e86; width: 64px; flex-shrink: 0; }
+      .quick-slider-row .scrubber { flex: 1; }
+      .quick-slider-row .val {
+        font-size: 10px; color: #a0a0a8; width: 36px; text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .advanced-toggle {
+        display: flex; align-items: center; justify-content: space-between;
+        width: 100%; background: none; border: none; padding: 0; cursor: pointer;
+        font-family: inherit; color: #505058; font-size: 9px; font-weight: 600;
+        letter-spacing: 0.06em; text-transform: uppercase;
+      }
+      .advanced-toggle:hover { color: #7e7e86; }
+      .advanced-toggle .chevron { transition: transform 0.2s; }
+      .advanced-toggle.open .chevron { transform: rotate(90deg); }
+      .advanced-body { display: none; margin-top: 12px; }
+      .advanced-body.open { display: block; }
+
+      .empty-fiddle { font-size: 11px; color: #505058; line-height: 1.5; }
+
+      .phase-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+      .prop-grid {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+      }
+    </style>
+  </head>
+
+  <body class="font-geist bg-dash-bg text-text-primary overflow-hidden">
+
+    <div id="login-overlay">
+      <div id="login-box" class="w-full max-w-[340px] px-6">
+        <h1 class="text-2xl font-semibold tracking-tight mb-8 text-center">Motion Editor</h1>
+        <form id="login-form" class="flex flex-col gap-3">
+          <input id="login-password" type="password" autocomplete="current-password"
+            placeholder="Password"
+            class="h-10 rounded-lg px-4 text-[13px] text-text-primary placeholder-muted focus:outline-none w-full">
+          <button type="submit" id="login-btn"
+            class="h-10 rounded-lg text-[13px] text-muted-light cursor-pointer w-full border border-[rgba(255,255,255,0.06)] hover:bg-surface-hover">
+            Sign in
+          </button>
+          <p id="login-error" class="text-[11px] text-center text-[#F26F60] min-h-[18px]">&nbsp;</p>
+        </form>
+      </div>
+    </div>
+
+    <div id="placeholder-templates" class="placeholder-templates" aria-hidden="true">
+      <div class="placeholder-root" data-placeholder="button">
+        <button data-motion-part="root" class="ph-btn" type="button">
+          <span data-motion-part="icon" class="ph-btn-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          </span>
+          <span data-motion-part="label">Save</span>
+        </button>
+      </div>
+      <div class="placeholder-root" data-placeholder="toggle">
+        <div data-motion-part="root" class="ph-toggle">
+          <div data-motion-part="knob" class="ph-toggle-knob"></div>
+        </div>
+      </div>
+      <div class="placeholder-root" data-placeholder="badge">
+        <div data-motion-part="root" class="ph-badge-wrap">
+          <div data-motion-part="icon" class="ph-badge-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          </div>
+          <span data-motion-part="count" class="ph-badge">3</span>
+        </div>
+      </div>
+      <div class="placeholder-root" data-placeholder="dropdown">
+        <div data-motion-part="root" class="ph-dropdown">
+          <div data-motion-part="trigger" class="ph-dropdown-trigger">
+            <span>Options</span>
+            <svg data-motion-part="chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div data-motion-part="menu" class="ph-dropdown-menu">
+            <div data-motion-part="item" class="ph-dropdown-item">Edit</div>
+            <div data-motion-part="item" class="ph-dropdown-item">Duplicate</div>
+            <div data-motion-part="item" class="ph-dropdown-item">Delete</div>
+          </div>
+        </div>
+      </div>
+      <div class="placeholder-root" data-placeholder="card">
+        <div data-motion-part="root" class="ph-card">
+          <div data-motion-part="header" class="ph-card-header">
+            <div data-motion-part="avatar" class="ph-card-avatar"></div>
+            <div>
+              <div data-motion-part="title" class="ph-card-title">Project Alpha</div>
+              <div class="ph-card-sub">Updated 2h ago</div>
+            </div>
+          </div>
+          <div data-motion-part="detail" class="ph-card-detail">
+            Expanding detail panel for motion testing.
+          </div>
+        </div>
+      </div>
+      <div class="placeholder-root" data-placeholder="loading">
+        <div data-motion-part="root" class="ph-spinner"></div>
+      </div>
+      <div class="placeholder-root" data-placeholder="tabs">
+        <div data-motion-part="root" class="ph-tabs">
+          <div data-motion-part="indicator" class="ph-tab-indicator"></div>
+          <div data-motion-part="tab" class="ph-tab active">Home</div>
+          <div class="ph-tab">Settings</div>
+          <div class="ph-tab">Profile</div>
+        </div>
+      </div>
+      <div class="placeholder-root" data-placeholder="toolbar">
+        <div data-motion-part="root" class="ph-toolbar">
+          <button data-motion-part="action" class="ph-toolbar-btn" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button class="ph-toolbar-btn" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="ph-toolbar-btn" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="placeholder-root" data-placeholder="toast">
+        <div data-motion-part="root" class="ph-toast">
+          <div data-motion-part="dot" class="ph-toast-dot"></div>
+          <span data-motion-part="text" class="ph-toast-text">Changes saved</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="editor-shell" class="editor-shell">
+      <header class="flex items-center justify-between px-4 py-3 border-b border-[rgba(255,255,255,0.06)] flex-shrink-0" style="background:#101012;">
+        <div class="flex items-center gap-3">
+          <h1 class="text-[14px] font-semibold tracking-tight">Motion Editor</h1>
+          <span class="text-[10px] text-muted" id="header-sub">pick a transition</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="dashboard-alternative.html" class="toolbar-btn no-underline">← Dashboard</a>
+          <button id="logout-btn" class="toolbar-btn" title="Logout">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M16 17l5-5m0 0l-5-5m5 5H9M9 3H7.8C6.12 3 5.28 3 4.64 3.33C4.07 3.61 3.61 4.07 3.33 4.64C3 5.28 3 6.12 3 7.8v8.4C3 17.88 3 18.72 3.33 19.36c0.28 0.57 0.74 1.03 1.31 1.31C4.96 19 5.8 19 7.48 19H9"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="flex flex-1 min-h-0">
+        <aside class="sidebar">
+          <div class="p-3 border-b border-[rgba(255,255,255,0.06)]">
+            <div class="flex gap-1 flex-wrap" id="left-tabs">
+              <button class="tab-btn active" data-tab="gallery">Gallery</button>
+              <button class="tab-btn" data-tab="placeholders">Placeholders</button>
+              <button class="tab-btn" data-tab="gitlab">GitLab</button>
+            </div>
+          </div>
+
+          <div id="tab-gallery" class="flex-1 overflow-y-auto px-2 pb-4" style="scrollbar-width:none;">
+            <div class="group-header">Transitions</div>
+            <div id="gallery-preset-list"></div>
+          </div>
+
+          <div id="tab-placeholders" class="flex-1 overflow-y-auto px-2 pb-4" style="display:none;scrollbar-width:none;">
+            <div class="group-header">Components</div>
+            <div id="placeholder-list"></div>
+          </div>
+
+          <div id="tab-gitlab" class="flex-1 flex flex-col min-h-0" style="display:none;">
+            <div class="p-3 flex flex-col gap-2 border-b border-[rgba(255,255,255,0.06)]">
+              <select id="gitlab-repo" class="sidebar-search w-full h-8 rounded-lg px-2 text-[11px] text-text-primary">
+                <option value="">Select repo…</option>
+              </select>
+              <input id="gitlab-search" type="text" autocomplete="off" placeholder="Search .vue files…"
+                class="sidebar-search w-full h-8 rounded-lg px-3 text-[12px] text-text-primary placeholder-muted">
+            </div>
+            <div class="flex-1 overflow-y-auto px-2 pb-4" id="gitlab-file-list" style="scrollbar-width:none;">
+              <div class="text-[11px] text-muted p-3">Select a repository to browse .vue files.</div>
+            </div>
+          </div>
+        </aside>
+
+        <div class="flex-1 flex flex-col min-w-0 min-h-0">
+          <div id="stage-toolbar" class="flex items-center gap-2 px-4 py-2 border-b border-[rgba(255,255,255,0.06)] flex-shrink-0" style="background:#101012;display:none;">
+            <button id="back-gallery-btn" class="toolbar-btn">← Gallery</button>
+            <button id="select-mode-btn" class="toolbar-btn">Select element</button>
+            <span id="stage-label" class="text-[11px] text-muted ml-2"></span>
+            <div class="flex-1"></div>
+            <span id="select-hint" class="text-[10px] text-muted" style="display:none;">Click to add target · Esc to exit</span>
+          </div>
+
+          <div id="preview-stage" class="preview-stage gallery-mode">
+            <div id="selection-overlay"></div>
+            <div id="gallery-view">
+              <div class="mb-6">
+                <h2 class="text-[18px] font-semibold tracking-tight text-text-primary">Ready-to-use transitions</h2>
+                <p class="text-[11px] text-muted mt-1">Pick one, fiddle, paste Vue or CSS into your app.</p>
+              </div>
+              <div id="gallery-grid" class="gallery-grid"></div>
+            </div>
+            <div id="editor-stage" style="display:none;"></div>
+            <div id="source-panel" style="display:none; position:absolute; inset:16px; flex-direction:column; gap:8px;">
+              <div class="info-note">Vue component rendering is not available yet. Showing source read-only.</div>
+              <pre id="source-content" class="source-view flex-1"></pre>
+            </div>
+          </div>
+
+          <div id="playback-bar" class="playback-bar hidden-bar">
+            <button id="btn-play" class="toolbar-btn" title="Play enter / on">▶ Play</button>
+            <button id="btn-leave" class="toolbar-btn" title="Leave / Off">Leave</button>
+            <button id="btn-pause" class="toolbar-btn" title="Pause">⏸</button>
+            <button id="btn-replay" class="toolbar-btn" title="Replay">↻</button>
+            <input id="scrubber" type="range" min="0" max="1000" value="0" class="scrubber" title="Progress">
+            <span id="progress-label" class="text-[10px] text-muted tabular-nums" style="min-width:36px;">0%</span>
+            <label class="flex items-center gap-2 text-[10px] text-muted">
+              Speed
+              <input id="speed-control" type="range" min="10" max="200" value="100" class="scrubber" style="width:80px;">
+              <span id="speed-label" class="tabular-nums" style="min-width:32px;">1×</span>
+            </label>
+          </div>
+        </div>
+
+        <aside id="right-panel" class="right-panel hidden-panel">
+          <div class="flex-1 overflow-y-auto" style="scrollbar-width:thin;">
+            <div class="panel-section" id="quick-section">
+              <div class="panel-label">Quick Controls</div>
+              <div id="quick-empty" class="empty-fiddle">Select a preset from the gallery to start fiddling.</div>
+              <div id="quick-controls" style="display:none;">
+                <div class="text-[12px] text-text-primary font-medium mb-1" id="quick-preset-name"></div>
+                <div class="text-[10px] text-muted mb-1" id="quick-preset-desc"></div>
+                <div id="quick-kind-tag" class="mb-4"></div>
+
+                <div class="quick-slider-row">
+                  <label>Duration</label>
+                  <input id="qc-duration" type="range" min="25" max="300" value="100" class="scrubber">
+                  <span class="val" id="qc-duration-val">1×</span>
+                </div>
+                <div class="quick-slider-row">
+                  <label>Intensity</label>
+                  <input id="qc-intensity" type="range" min="0" max="200" value="100" class="scrubber">
+                  <span class="val" id="qc-intensity-val">1×</span>
+                </div>
+                <div class="prop-field" style="margin-bottom:0;">
+                  <label>Easing</label>
+                  <select id="qc-easing"></select>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-section">
+              <div class="panel-label">Selected Target</div>
+              <div id="target-info" class="text-[12px] text-muted">No element selected</div>
+              <div id="target-warning" style="display:none;"></div>
+              <button id="add-target-btn" class="toolbar-btn mt-3 w-full" disabled>+ Add as target</button>
+            </div>
+
+            <div class="panel-section">
+              <button class="advanced-toggle" id="advanced-toggle" type="button">
+                <span>Advanced</span>
+                <svg class="chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
+              <div class="advanced-body" id="advanced-body">
+                <div class="panel-label">Targets</div>
+                <div id="target-list" class="text-[11px] text-muted mb-3">No targets yet</div>
+
+                <div id="phase-editor" style="display:none;">
+                  <div class="phase-tabs" id="phase-tabs"></div>
+                  <div class="prop-field mb-2">
+                    <label>Stagger (s)</label>
+                    <input id="adv-stagger" type="number" step="0.05" min="0" value="0">
+                  </div>
+                  <div class="prop-grid mb-2">
+                    <div class="prop-field">
+                      <label>Duration</label>
+                      <input id="adv-duration" type="number" step="0.05" min="0" value="0.3">
+                    </div>
+                    <div class="prop-field">
+                      <label>Delay</label>
+                      <input id="adv-delay" type="number" step="0.05" min="0" value="0">
+                    </div>
+                  </div>
+                  <div class="prop-field mb-3">
+                    <label>Easing</label>
+                    <select id="adv-easing"></select>
+                  </div>
+                  <div class="panel-label">From</div>
+                  <div class="prop-grid mb-3" id="from-props"></div>
+                  <div class="panel-label">To</div>
+                  <div class="prop-grid" id="to-props"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-section">
+              <div class="flex items-center justify-between mb-2">
+                <div class="panel-label" style="margin-bottom:0;">Export</div>
+                <button id="copy-export-btn" class="toolbar-btn">Copy</button>
+              </div>
+              <div class="text-[10px] text-muted mb-2" id="export-kind-label">—</div>
+              <pre id="export-output" class="export-area">// Pick a preset to generate export</pre>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+    (function() {
+      const WORKER_URL = 'https://linear-proxy.tobiaswenck.workers.dev';
+      const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const TOKEN_KEY = 'dash_token';
+      const STORAGE_KEY = 'motion_editor_v3';
+
+      const FLEET_REPOS = [
+        { path: 'Rail-Network/gps-s/mobileapp', label: 'GPS-S' },
+        { path: 'Rail-Network/report/mobileapp', label: 'Report' },
+        { path: 'Rail-Network/komreg/komregapp', label: 'KomReg' },
+        { path: 'Rail-Network/fahrplan-app', label: 'Fahrplan' },
+      ];
+
+      const PLACEHOLDERS = [
+        { id: 'button', label: 'Button' },
+        { id: 'toggle', label: 'Toggle switch' },
+        { id: 'badge', label: 'Notification badge' },
+        { id: 'dropdown', label: 'Dropdown menu' },
+        { id: 'card', label: 'Card / detail' },
+        { id: 'loading', label: 'Loading indicator' },
+        { id: 'tabs', label: 'Tab indicator' },
+        { id: 'toolbar', label: 'Toolbar action' },
+        { id: 'toast', label: 'Toast' },
+      ];
+
+      const PROP_KEYS = [
+        'x', 'y', 'xPercent', 'yPercent', 'scale', 'rotate', 'opacity',
+        'width', 'height', 'borderRadius', 'blur', 'backgroundColor', 'transformOrigin',
+      ];
+      const INTENSITY_KEYS = new Set(['x', 'y', 'xPercent', 'yPercent', 'rotate', 'scale']);
+
+      const EASINGS = {
+        'linear': 'linear',
+        'ease-out-quad': 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        'ease-out-cubic': 'cubic-bezier(0.215, 0.61, 0.355, 1)',
+        'ease-out-quart': 'cubic-bezier(0.165, 0.84, 0.44, 1)',
+        'ease-out-expo': 'cubic-bezier(0.19, 1, 0.22, 1)',
+        'ease-in-quad': 'cubic-bezier(0.55, 0.085, 0.68, 0.53)',
+        'ease-in-cubic': 'cubic-bezier(0.55, 0.055, 0.675, 0.19)',
+        'ease-in-out-cubic': 'cubic-bezier(0.645, 0.045, 0.355, 1)',
+        'ease-in-out-quart': 'cubic-bezier(0.77, 0, 0.175, 1)',
+        'overshoot-soft': 'cubic-bezier(0.34, 1.2, 0.64, 1)',
+        'overshoot-medium': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'overshoot-strong': 'cubic-bezier(0.34, 1.8, 0.64, 1)',
+      };
+
+      function phase(from, to, duration, easing, delay) {
+        return {
+          from: from || {},
+          to: to || {},
+          duration: duration ?? 0.35,
+          delay: delay ?? 0,
+          easing: easing || 'ease-out-cubic',
+          keyframes: null,
+        };
+      }
+
+      function phaseKf(keyframes, duration, easing, delay) {
+        return {
+          from: keyframes[0]?.props || {},
+          to: keyframes[keyframes.length - 1]?.props || {},
+          duration: duration ?? 0.4,
+          delay: delay ?? 0,
+          easing: easing || 'ease-out-cubic',
+          keyframes,
+        };
+      }
+
+      function target(selector, opts) {
+        const t = { selector, stagger: opts.stagger || 0 };
+        if (opts.enter) t.enter = opts.enter;
+        if (opts.leave) t.leave = opts.leave;
+        if (opts.toggle) t.toggle = opts.toggle;
+        return t;
+      }
+
+      // ── Presets ──
+      const PRESETS = [
+        {
+          id: 'badge-pop',
+          name: 'Badge pop',
+          description: 'Overshoot pop in / scale out',
+          placeholder: 'badge',
+          kind: 'transition',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='count']", {
+              enter: phase({ scale: 0, opacity: 0 }, { scale: 1, opacity: 1 }, 0.45, 'overshoot-strong'),
+              leave: phase({ scale: 1, opacity: 1 }, { scale: 0, opacity: 0 }, 0.25, 'ease-in-cubic'),
+            }),
+            target("[data-motion-part='icon']", {
+              enter: phase({ rotate: -8 }, { rotate: 0 }, 0.4, 'overshoot-medium', 0.05),
+              leave: phase({ rotate: 0 }, { rotate: 8 }, 0.2, 'ease-in-quad'),
+            }),
+          ],
+        },
+        {
+          id: 'dropdown-open',
+          name: 'Dropdown open',
+          description: 'Menu reveal with staggered items',
+          placeholder: 'dropdown',
+          kind: 'transition',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='menu']", {
+              enter: phase({ opacity: 0, y: -8 }, { opacity: 1, y: 0 }, 0.3, 'ease-out-cubic'),
+              leave: phase({ opacity: 1, y: 0 }, { opacity: 0, y: -6 }, 0.2, 'ease-in-quad'),
+            }),
+            target("[data-motion-part='item']", {
+              stagger: 0.05,
+              enter: phase({ opacity: 0, x: -6 }, { opacity: 1, x: 0 }, 0.25, 'ease-out-quad', 0.08),
+              leave: phase({ opacity: 1, x: 0 }, { opacity: 0, x: -4 }, 0.15, 'ease-in-quad'),
+            }),
+            target("[data-motion-part='chevron']", {
+              enter: phase({ rotate: 0 }, { rotate: 180 }, 0.3, 'ease-out-cubic'),
+              leave: phase({ rotate: 180 }, { rotate: 0 }, 0.25, 'ease-out-cubic'),
+            }),
+          ],
+        },
+        {
+          id: 'toast-slide',
+          name: 'Toast slide',
+          description: 'Slide up in / slide down out',
+          placeholder: 'toast',
+          kind: 'transition',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='root']", {
+              enter: phase({ opacity: 0, y: 16 }, { opacity: 1, y: 0 }, 0.35, 'ease-out-cubic'),
+              leave: phase({ opacity: 1, y: 0 }, { opacity: 0, y: 12 }, 0.25, 'ease-in-quad'),
+            }),
+          ],
+        },
+        {
+          id: 'card-expand',
+          name: 'Card expand',
+          description: 'Detail reveal / collapse',
+          placeholder: 'card',
+          kind: 'transition',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='detail']", {
+              enter: phase({ opacity: 0, y: -10 }, { opacity: 1, y: 0 }, 0.4, 'ease-out-cubic'),
+              leave: phase({ opacity: 1, y: 0 }, { opacity: 0, y: -8 }, 0.25, 'ease-in-quad'),
+            }),
+            target("[data-motion-part='avatar']", {
+              enter: phase({ scale: 0.8, opacity: 0.6 }, { scale: 1, opacity: 1 }, 0.4, 'overshoot-soft', 0.05),
+              leave: phase({ scale: 1, opacity: 1 }, { scale: 0.9, opacity: 0.5 }, 0.2, 'ease-in-quad'),
+            }),
+          ],
+        },
+        {
+          id: 'spinner-appear',
+          name: 'Spinner appear',
+          description: 'Fade + rotate in / out',
+          placeholder: 'loading',
+          kind: 'transition',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='root']", {
+              enter: phase({ opacity: 0, scale: 0.6, rotate: -90 }, { opacity: 1, scale: 1, rotate: 0 }, 0.5, 'ease-out-cubic'),
+              leave: phase({ opacity: 1, scale: 1, rotate: 0 }, { opacity: 0, scale: 0.6, rotate: 45 }, 0.3, 'ease-in-cubic'),
+            }),
+          ],
+        },
+        {
+          id: 'label-swap',
+          name: 'Label swap',
+          description: 'Out-in label crossfade',
+          placeholder: 'button',
+          kind: 'transition',
+          outIn: true,
+          targets: [
+            target("[data-motion-part='label']", {
+              enter: phase({ opacity: 0, yPercent: 100 }, { opacity: 1, yPercent: 0 }, 0.25, 'ease-out-cubic'),
+              leave: phase({ opacity: 1, yPercent: 0 }, { opacity: 0, yPercent: -100 }, 0.2, 'ease-in-quad'),
+            }),
+          ],
+        },
+        {
+          id: 'icon-swap',
+          name: 'Icon swap',
+          description: 'Out-in icon scale swap',
+          placeholder: 'button',
+          kind: 'transition',
+          outIn: true,
+          targets: [
+            target("[data-motion-part='icon']", {
+              enter: phase({ opacity: 0, scale: 0.5, rotate: -30 }, { opacity: 1, scale: 1, rotate: 0 }, 0.3, 'overshoot-medium'),
+              leave: phase({ opacity: 1, scale: 1, rotate: 0 }, { opacity: 0, scale: 0.5, rotate: 30 }, 0.2, 'ease-in-quad'),
+            }),
+          ],
+        },
+        {
+          id: 'toggle-slide',
+          name: 'Toggle slide',
+          description: 'Knob slides + track color',
+          placeholder: 'toggle',
+          kind: 'state',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='knob']", {
+              toggle: phase({ x: 0 }, { x: 20 }, 0.35, 'overshoot-soft'),
+            }),
+            target("[data-motion-part='root']", {
+              toggle: phase({ backgroundColor: '#2a2a2e' }, { backgroundColor: '#5E6AD2' }, 0.3, 'ease-out-quad'),
+            }),
+          ],
+        },
+        {
+          id: 'tab-slide',
+          name: 'Tab indicator',
+          description: 'Pill slides to next tab',
+          placeholder: 'tabs',
+          kind: 'state',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='indicator']", {
+              toggle: phase({ x: 0 }, { x: 72 }, 0.4, 'ease-in-out-cubic'),
+            }),
+          ],
+        },
+        {
+          id: 'card-lift',
+          name: 'Card hover lift',
+          description: 'Subtle y lift with scale',
+          placeholder: 'card',
+          kind: 'state',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='root']", {
+              toggle: phase({ y: 0, scale: 1 }, { y: -8, scale: 1.02 }, 0.35, 'ease-out-cubic'),
+            }),
+          ],
+        },
+        {
+          id: 'button-pulse',
+          name: 'Button success pulse',
+          description: 'Scale burst keyframes',
+          placeholder: 'button',
+          kind: 'state',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='icon']", {
+              toggle: phaseKf([
+                { offset: 0, props: { scale: 1 } },
+                { offset: 0.4, props: { scale: 1.45 } },
+                { offset: 1, props: { scale: 1 } },
+              ], 0.5, 'overshoot-medium'),
+            }),
+            target("[data-motion-part='root']", {
+              toggle: phaseKf([
+                { offset: 0, props: { scale: 1 } },
+                { offset: 0.35, props: { scale: 1.04 } },
+                { offset: 1, props: { scale: 1 } },
+              ], 0.45, 'ease-out-cubic'),
+            }),
+          ],
+        },
+        {
+          id: 'badge-shake',
+          name: 'Badge attention shake',
+          description: 'X-wiggle keyframes',
+          placeholder: 'badge',
+          kind: 'state',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='count']", {
+              toggle: phaseKf([
+                { offset: 0, props: { x: 0, scale: 1 } },
+                { offset: 0.15, props: { x: -4, scale: 1.15 } },
+                { offset: 0.35, props: { x: 4, scale: 1.1 } },
+                { offset: 0.55, props: { x: -3, scale: 1.05 } },
+                { offset: 0.75, props: { x: 2, scale: 1.02 } },
+                { offset: 1, props: { x: 0, scale: 1 } },
+              ], 0.45, 'ease-out-quad'),
+            }),
+          ],
+        },
+        {
+          id: 'toolbar-pop',
+          name: 'Toolbar action pop',
+          description: 'Rotate + scale burst',
+          placeholder: 'toolbar',
+          kind: 'state',
+          outIn: false,
+          targets: [
+            target("[data-motion-part='action']", {
+              toggle: phaseKf([
+                { offset: 0, props: { scale: 1, rotate: 0 } },
+                { offset: 0.4, props: { scale: 1.25, rotate: 90 } },
+                { offset: 1, props: { scale: 1, rotate: 0 } },
+              ], 0.5, 'overshoot-medium'),
+            }),
+          ],
+        },
+      ];
+
+      // ── Auth ──
+      function getToken() { return localStorage.getItem(TOKEN_KEY); }
+      function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+      function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+      function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+
+      function decodePayload(token) {
+        try {
+          const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+          return JSON.parse(atob(base64));
+        } catch { return null; }
+      }
+      function isTokenValid() {
+        const token = getToken();
+        if (!token) return false;
+        const p = decodePayload(token);
+        return p?.exp && p.exp > Math.floor(Date.now() / 1000);
+      }
+
+      function showApp() {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('editor-shell').classList.add('open');
+      }
+      function showLogin(msg) {
+        document.getElementById('login-overlay').classList.remove('hidden');
+        document.getElementById('editor-shell').classList.remove('open');
+        if (msg) document.getElementById('login-error').textContent = msg;
+      }
+
+      async function workerFetch(path, body) {
+        const token = getToken();
+        const res = await fetch(`${WORKER_URL}${path}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(body || {}),
+        });
+        if (res.status === 401) {
+          clearToken();
+          showLogin('Session expired. Please sign in again.');
+          throw new Error('Unauthorized');
+        }
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || `HTTP ${res.status}`);
+        }
+        return res;
+      }
+
+      function uid() { return Math.random().toString(36).slice(2, 10); }
+      function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+
+      // ── CSS helpers ──
+      function propsToCss(props) {
+        if (!props) return {};
+        const css = {};
+        const transforms = [];
+        const filters = [];
+        for (const [k, v] of Object.entries(props)) {
+          if (v === undefined || v === null || v === '') continue;
+          if (k === 'x') transforms.push(`translateX(${typeof v === 'number' ? v + 'px' : v})`);
+          else if (k === 'y') transforms.push(`translateY(${typeof v === 'number' ? v + 'px' : v})`);
+          else if (k === 'xPercent') transforms.push(`translateX(${v}%)`);
+          else if (k === 'yPercent') transforms.push(`translateY(${v}%)`);
+          else if (k === 'scale') transforms.push(`scale(${v})`);
+          else if (k === 'rotate') transforms.push(`rotate(${typeof v === 'number' ? v + 'deg' : v})`);
+          else if (k === 'opacity') css.opacity = String(v);
+          else if (k === 'width') css.width = typeof v === 'number' ? v + 'px' : String(v);
+          else if (k === 'height') css.height = typeof v === 'number' ? v + 'px' : String(v);
+          else if (k === 'borderRadius') css['border-radius'] = typeof v === 'number' ? v + 'px' : String(v);
+          else if (k === 'blur') filters.push(`blur(${typeof v === 'number' ? v + 'px' : v})`);
+          else if (k === 'backgroundColor') css['background-color'] = String(v);
+          else if (k === 'transformOrigin') css['transform-origin'] = String(v);
+        }
+        if (transforms.length) css.transform = transforms.join(' ');
+        if (filters.length) css.filter = filters.join(' ');
+        return css;
+      }
+
+      function cssDecls(obj, indent) {
+        const pad = ' '.repeat(indent);
+        return Object.entries(obj).map(([k, v]) => `${pad}${k}: ${v};`).join('\n');
+      }
+
+      function easingCss(name) {
+        return EASINGS[name] || EASINGS['ease-out-cubic'];
+      }
+
+      function resolveSelector(sel) {
+        if (sel === 'root') return "[data-motion-part='root']";
+        return sel;
+      }
+
+      function slugify(name) {
+        return String(name || 'motion').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'motion';
+      }
+
+      // ── WAAPI PreviewController ──
+      function propsToWaapiKeyframe(props) {
+        const css = propsToCss(props);
+        // WAAPI wants camelCase for some; transform/opacity/filter work as-is
+        const kf = {};
+        if (css.transform) kf.transform = css.transform;
+        if (css.opacity !== undefined) kf.opacity = css.opacity;
+        if (css.filter) kf.filter = css.filter;
+        if (css['background-color']) kf.backgroundColor = css['background-color'];
+        if (css.width) kf.width = css.width;
+        if (css.height) kf.height = css.height;
+        if (css['border-radius']) kf.borderRadius = css['border-radius'];
+        if (css['transform-origin']) kf.transformOrigin = css['transform-origin'];
+        return kf;
+      }
+
+      function buildPhaseKeyframes(phaseData) {
+        if (phaseData.keyframes && phaseData.keyframes.length) {
+          return phaseData.keyframes.map(kf => ({
+            offset: kf.offset,
+            ...propsToWaapiKeyframe(kf.props),
+          }));
+        }
+        return [
+          propsToWaapiKeyframe(phaseData.from),
+          propsToWaapiKeyframe(phaseData.to),
+        ];
+      }
+
+      function PreviewController() {
+        this.anims = [];
+        this.totalMs = 0;
+        this.rate = 1;
+        this._raf = null;
+        this.onTick = null;
+      }
+
+      PreviewController.prototype.cancel = function() {
+        if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+        for (const a of this.anims) {
+          try { a.cancel(); } catch { /* ignore */ }
+        }
+        this.anims = [];
+        this.totalMs = 0;
+      };
+
+      PreviewController.prototype.build = function(root, targets, phaseName) {
+        this.cancel();
+        if (!root || !targets) return;
+
+        let maxEnd = 0;
+        const anims = [];
+
+        for (const t of targets) {
+          const phaseData = t[phaseName];
+          if (!phaseData) continue;
+          const sel = resolveSelector(t.selector);
+          let els = [];
+          try { els = [...root.querySelectorAll(sel)]; } catch { els = []; }
+          if (!els.length) continue;
+
+          const kfs = buildPhaseKeyframes(phaseData);
+          const dur = (phaseData.duration || 0.3) * 1000;
+          const baseDelay = (phaseData.delay || 0) * 1000;
+          const stagger = (t.stagger || 0) * 1000;
+          const easing = easingCss(phaseData.easing);
+
+          els.forEach((el, i) => {
+            const delay = baseDelay + i * stagger;
+            try {
+              const anim = el.animate(kfs, {
+                duration: dur,
+                delay,
+                easing: phaseData.keyframes ? 'linear' : easing,
+                fill: 'both',
+              });
+              anim.pause();
+              anims.push(anim);
+              maxEnd = Math.max(maxEnd, delay + dur);
+            } catch (err) {
+              console.warn('[Motion] WAAPI failed', err);
+            }
+          });
+        }
+
+        this.anims = anims;
+        this.totalMs = maxEnd || 1;
+        for (const a of anims) a.playbackRate = this.rate;
+      };
+
+      PreviewController.prototype.play = function() {
+        for (const a of this.anims) {
+          if (a.playState === 'finished') a.currentTime = 0;
+          a.play();
+        }
+        this._startTick();
+      };
+
+      PreviewController.prototype.pause = function() {
+        for (const a of this.anims) a.pause();
+        if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+      };
+
+      PreviewController.prototype.seek = function(progress) {
+        const t = Math.max(0, Math.min(1, progress)) * this.totalMs;
+        for (const a of this.anims) {
+          a.pause();
+          try { a.currentTime = Math.min(t, a.effect.getTiming().delay + a.effect.getTiming().duration); }
+          catch { a.currentTime = t; }
+        }
+        if (this.onTick) this.onTick(progress);
+      };
+
+      PreviewController.prototype.setRate = function(r) {
+        this.rate = r || 1;
+        for (const a of this.anims) a.playbackRate = this.rate;
+      };
+
+      PreviewController.prototype.progress = function() {
+        if (!this.anims.length || !this.totalMs) return 0;
+        let maxT = 0;
+        for (const a of this.anims) maxT = Math.max(maxT, a.currentTime || 0);
+        return Math.min(1, maxT / this.totalMs);
+      };
+
+      PreviewController.prototype._startTick = function() {
+        if (this._raf) cancelAnimationFrame(this._raf);
+        const tick = () => {
+          if (this.onTick) this.onTick(this.progress());
+          const anyRunning = this.anims.some(a => a.playState === 'running');
+          if (anyRunning) this._raf = requestAnimationFrame(tick);
+          else this._raf = null;
+        };
+        this._raf = requestAnimationFrame(tick);
+      };
+
+      // ── State ──
+      let viewMode = 'gallery';
+      let animation = emptyAnimation();
+      let baselineTargets = null;
+      let quickKnobs = { duration: 1, intensity: 1, easing: '' };
+      let activeTargetIdx = 0;
+      let activePhase = 'enter';
+      let selectedTarget = null;
+      let selecting = false;
+      let activePlaceholder = 'button';
+      let scrubbing = false;
+      let gitlabFiles = [];
+      let gitlabProjects = [];
+      let galleryCards = new Map(); // presetId -> { controller, root, phase }
+
+      const editorCtrl = new PreviewController();
+      editorCtrl.onTick = (p) => { if (!scrubbing) updateScrubber(p); };
+
+      function emptyAnimation() {
+        return {
+          id: 'anim-' + uid(),
+          name: 'Untitled',
+          kind: 'transition',
+          placeholder: 'button',
+          outIn: false,
+          presetId: null,
+          targets: [],
+        };
+      }
+
+      // ── Persistence ──
+      function saveState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            animation, baselineTargets, quickKnobs, activePlaceholder, viewMode, activeTargetIdx, activePhase,
+          }));
+        } catch { /* ignore */ }
+      }
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return false;
+          const data = JSON.parse(raw);
+          if (data.animation && Array.isArray(data.animation.targets)) animation = data.animation;
+          else return false;
+          if (data.baselineTargets) baselineTargets = data.baselineTargets;
+          if (data.quickKnobs) quickKnobs = data.quickKnobs;
+          if (data.activePlaceholder) activePlaceholder = data.activePlaceholder;
+          if (data.viewMode) viewMode = data.viewMode;
+          if (typeof data.activeTargetIdx === 'number') activeTargetIdx = data.activeTargetIdx;
+          if (data.activePhase) activePhase = data.activePhase;
+          return true;
+        } catch { return false; }
+      }
+
+      function clonePlaceholder(id) {
+        const tpl = document.querySelector(`#placeholder-templates [data-placeholder="${id}"]`);
+        if (!tpl) return null;
+        const clone = tpl.cloneNode(true);
+        clone.removeAttribute('id');
+        clone.classList.add('active');
+        clone.style.display = '';
+        return clone;
+      }
+
+      // ── View modes ──
+      function setViewMode(mode) {
+        viewMode = mode;
+        const stage = document.getElementById('preview-stage');
+        const galleryView = document.getElementById('gallery-view');
+        const editorStage = document.getElementById('editor-stage');
+        const sourcePanel = document.getElementById('source-panel');
+        const stageToolbar = document.getElementById('stage-toolbar');
+        const playbackBar = document.getElementById('playback-bar');
+        const rightPanel = document.getElementById('right-panel');
+
+        if (mode === 'gallery') {
+          editorCtrl.cancel();
+          stage.classList.add('gallery-mode');
+          galleryView.style.display = '';
+          editorStage.style.display = 'none';
+          sourcePanel.style.display = 'none';
+          stageToolbar.style.display = 'none';
+          playbackBar.classList.add('hidden-bar');
+          rightPanel.classList.add('hidden-panel');
+          document.getElementById('header-sub').textContent = 'pick a transition';
+          setSelecting(false);
+          if (!document.getElementById('gallery-grid').children.length) renderGallery();
+        } else if (mode === 'editor') {
+          stage.classList.remove('gallery-mode');
+          galleryView.style.display = 'none';
+          editorStage.style.display = '';
+          sourcePanel.style.display = 'none';
+          stageToolbar.style.display = '';
+          playbackBar.classList.remove('hidden-bar');
+          rightPanel.classList.remove('hidden-panel');
+          document.getElementById('header-sub').textContent = 'fiddle · export';
+          mountEditorPlaceholder(activePlaceholder);
+          syncLeaveButton();
+        } else if (mode === 'source') {
+          stage.classList.remove('gallery-mode');
+          galleryView.style.display = 'none';
+          editorStage.style.display = 'none';
+          sourcePanel.style.display = 'flex';
+          stageToolbar.style.display = '';
+          playbackBar.classList.add('hidden-bar');
+          rightPanel.classList.add('hidden-panel');
+          editorCtrl.cancel();
+        }
+        saveState();
+      }
+
+      function mountEditorPlaceholder(id) {
+        activePlaceholder = id;
+        const stage = document.getElementById('editor-stage');
+        stage.innerHTML = '';
+        const clone = clonePlaceholder(id);
+        if (clone) stage.appendChild(clone);
+        const label = PLACEHOLDERS.find(p => p.id === id)?.label || id;
+        document.getElementById('stage-label').textContent = animation.name
+          ? `${animation.name} · ${label}`
+          : label;
+        renderPlaceholderList();
+      }
+
+      function getActiveRoot() {
+        return document.querySelector('#editor-stage .placeholder-root');
+      }
+
+      function syncLeaveButton() {
+        const btn = document.getElementById('btn-leave');
+        btn.textContent = animation.kind === 'transition' ? 'Leave' : 'Off';
+        btn.title = animation.kind === 'transition' ? 'Play leave phase' : 'Toggle off';
+      }
+
+      // ── Left tabs ──
+      document.getElementById('left-tabs').addEventListener('click', (e) => {
+        const btn = e.target.closest('.tab-btn');
+        if (!btn) return;
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('#left-tabs .tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+        document.getElementById('tab-gallery').style.display = tab === 'gallery' ? '' : 'none';
+        document.getElementById('tab-placeholders').style.display = tab === 'placeholders' ? '' : 'none';
+        document.getElementById('tab-gitlab').style.display = tab === 'gitlab' ? 'flex' : 'none';
+        if (tab === 'gallery') setViewMode('gallery');
+        else if (tab === 'placeholders') { if (viewMode !== 'editor') setViewMode('editor'); }
+        else if (tab === 'gitlab' && gitlabProjects.length === 0) loadGitlabProjects();
+      });
+
+      document.getElementById('back-gallery-btn').addEventListener('click', () => {
+        document.querySelectorAll('#left-tabs .tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'gallery'));
+        setViewMode('gallery');
+      });
+
+      // ── Gallery ──
+      function kindTagHtml(kind) {
+        const label = kind === 'transition' ? 'Transition' : 'Class toggle';
+        return `<span class="kind-tag ${kind === 'transition' ? 'transition' : 'state'}">${label}</span>`;
+      }
+
+      function renderGallery() {
+        const grid = document.getElementById('gallery-grid');
+        for (const [, data] of galleryCards) {
+          if (data.controller) data.controller.cancel();
+        }
+        galleryCards.clear();
+        grid.innerHTML = '';
+
+        for (const preset of PRESETS) {
+          const card = document.createElement('div');
+          card.className = 'preset-card';
+          card.dataset.preset = preset.id;
+
+          const preview = document.createElement('div');
+          preview.className = 'preset-card-preview';
+          const clone = clonePlaceholder(preset.placeholder);
+          if (clone) {
+            clone.classList.remove('active');
+            preview.appendChild(clone);
+          }
+
+          const isTransition = preset.kind === 'transition';
+          const meta = document.createElement('div');
+          meta.className = 'preset-card-meta';
+          meta.innerHTML = `
+            <div>
+              <h3>${esc(preset.name)}</h3>
+              <p>${esc(preset.description)}</p>
+              ${kindTagHtml(preset.kind)}
+            </div>
+            <div class="card-actions">
+              <button class="animate-btn" type="button" data-replay="${esc(preset.id)}">Animate</button>
+              ${isTransition ? `<button class="animate-btn secondary" type="button" data-toggle="${esc(preset.id)}">Toggle</button>` : ''}
+            </div>
+          `;
+
+          card.appendChild(preview);
+          card.appendChild(meta);
+          grid.appendChild(card);
+
+          const ctrl = new PreviewController();
+          galleryCards.set(preset.id, { controller: ctrl, root: clone, phase: 'enter', shown: true });
+
+          card.addEventListener('mouseenter', () => playGalleryCard(preset.id, 'enter'));
+          card.addEventListener('click', (e) => {
+            if (e.target.closest('.animate-btn')) return;
+            loadPreset(preset.id);
+          });
+        }
+
+        grid.querySelectorAll('[data-replay]').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            playGalleryCard(btn.dataset.replay, 'enter');
+          });
+        });
+        grid.querySelectorAll('[data-toggle]').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const data = galleryCards.get(btn.dataset.toggle);
+            if (!data) return;
+            const next = data.shown ? 'leave' : 'enter';
+            data.shown = !data.shown;
+            playGalleryCard(btn.dataset.toggle, next);
+          });
+        });
+
+        const list = document.getElementById('gallery-preset-list');
+        list.innerHTML = PRESETS.map(p =>
+          `<div class="sidebar-item" data-preset="${esc(p.id)}">${esc(p.name)}</div>`
+        ).join('');
+        list.querySelectorAll('.sidebar-item').forEach(el => {
+          el.addEventListener('click', () => loadPreset(el.dataset.preset));
+        });
+      }
+
+      function playGalleryCard(presetId, phaseName) {
+        const data = galleryCards.get(presetId);
+        const preset = PRESETS.find(p => p.id === presetId);
+        if (!data || !preset || !data.root) return;
+        const phase = phaseName || (preset.kind === 'transition' ? 'enter' : 'toggle');
+        data.controller.build(data.root, preset.targets, phase);
+        data.controller.play();
+      }
+
+      // ── Load preset ──
+      function loadPreset(presetId) {
+        const preset = PRESETS.find(p => p.id === presetId);
+        if (!preset) return;
+
+        animation = {
+          id: 'anim-' + uid(),
+          name: preset.name,
+          kind: preset.kind,
+          placeholder: preset.placeholder,
+          outIn: !!preset.outIn,
+          presetId: preset.id,
+          targets: deepClone(preset.targets),
+        };
+        baselineTargets = deepClone(preset.targets);
+        quickKnobs = { duration: 1, intensity: 1, easing: '' };
+        activeTargetIdx = 0;
+        activePhase = preset.kind === 'transition' ? 'enter' : 'toggle';
+        activePlaceholder = preset.placeholder;
+        clearSelection();
+
+        document.getElementById('qc-duration').value = 100;
+        document.getElementById('qc-intensity').value = 100;
+        document.getElementById('qc-easing').value = '';
+        document.getElementById('qc-duration-val').textContent = '1×';
+        document.getElementById('qc-intensity-val').textContent = '1×';
+
+        document.querySelectorAll('#left-tabs .tab-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.tab === 'gallery')
+        );
+
+        setViewMode('editor');
+        applyQuickKnobs();
+        updateQuickVisibility();
+        renderTargetList();
+        renderPhaseEditor();
+        updateExport();
+        syncLeaveButton();
+
+        requestAnimationFrame(() => playEditorPhase(animation.kind === 'transition' ? 'enter' : 'toggle'));
+        saveState();
+      }
+
+      // ── Quick knobs ──
+      function scaleIntensity(key, val, intensity) {
+        if (typeof val !== 'number' || !INTENSITY_KEYS.has(key)) return val;
+        if (key === 'scale') return 1 + (val - 1) * intensity;
+        return val * intensity;
+      }
+
+      function scalePhase(phaseData, durMul, intensity, easeOverride) {
+        if (!phaseData) return phaseData;
+        const out = deepClone(phaseData);
+        out.duration = (out.duration || 0.3) * durMul;
+        out.delay = (out.delay || 0) * durMul;
+        if (easeOverride) out.easing = easeOverride;
+
+        function scaleProps(props) {
+          if (!props) return {};
+          const r = {};
+          for (const [k, v] of Object.entries(props)) {
+            r[k] = scaleIntensity(k, v, intensity);
+          }
+          return r;
+        }
+        out.from = scaleProps(out.from);
+        out.to = scaleProps(out.to);
+        if (out.keyframes) {
+          out.keyframes = out.keyframes.map(kf => ({
+            offset: kf.offset,
+            props: scaleProps(kf.props),
+          }));
+        }
+        return out;
+      }
+
+      function applyQuickKnobs() {
+        if (!baselineTargets) return;
+        const d = quickKnobs.duration;
+        const i = quickKnobs.intensity;
+        const ease = quickKnobs.easing;
+
+        animation.targets = baselineTargets.map(base => {
+          const t = { selector: base.selector, stagger: (base.stagger || 0) * d };
+          if (base.enter) t.enter = scalePhase(base.enter, d, i, ease || null);
+          if (base.leave) t.leave = scalePhase(base.leave, d, i, ease || null);
+          if (base.toggle) t.toggle = scalePhase(base.toggle, d, i, ease || null);
+          return t;
+        });
+
+        rebuildEditorPreview(false);
+        updateExport();
+        saveState();
+      }
+
+      function updateQuickVisibility() {
+        const has = animation.targets.length > 0;
+        document.getElementById('quick-empty').style.display = has ? 'none' : '';
+        document.getElementById('quick-controls').style.display = has ? '' : 'none';
+        if (!has) return;
+        document.getElementById('quick-preset-name').textContent = animation.name || 'Custom';
+        const p = PRESETS.find(x => x.id === animation.presetId);
+        document.getElementById('quick-preset-desc').textContent = p ? p.description : 'Custom animation';
+        document.getElementById('quick-kind-tag').innerHTML = kindTagHtml(animation.kind);
+      }
+
+      function fillEasingSelect(sel, includeOriginal) {
+        let html = includeOriginal ? '<option value="">per-target (original)</option>' : '';
+        for (const name of Object.keys(EASINGS)) {
+          html += `<option value="${esc(name)}">${esc(name)}</option>`;
+        }
+        sel.innerHTML = html;
+      }
+
+      document.getElementById('qc-duration').addEventListener('input', (e) => {
+        quickKnobs.duration = parseFloat(e.target.value) / 100;
+        document.getElementById('qc-duration-val').textContent =
+          quickKnobs.duration.toFixed(2).replace(/\.?0+$/, '') + '×';
+        applyQuickKnobs();
+        renderPhaseEditor();
+      });
+      document.getElementById('qc-intensity').addEventListener('input', (e) => {
+        quickKnobs.intensity = parseFloat(e.target.value) / 100;
+        document.getElementById('qc-intensity-val').textContent =
+          quickKnobs.intensity.toFixed(2).replace(/\.?0+$/, '') + '×';
+        applyQuickKnobs();
+        renderPhaseEditor();
+      });
+      document.getElementById('qc-easing').addEventListener('change', (e) => {
+        quickKnobs.easing = e.target.value;
+        applyQuickKnobs();
+        renderPhaseEditor();
+      });
+
+      document.getElementById('advanced-toggle').addEventListener('click', () => {
+        const btn = document.getElementById('advanced-toggle');
+        const body = document.getElementById('advanced-body');
+        const open = !body.classList.contains('open');
+        body.classList.toggle('open', open);
+        btn.classList.toggle('open', open);
+      });
+
+      // ── Placeholder list ──
+      function renderPlaceholderList() {
+        const list = document.getElementById('placeholder-list');
+        list.innerHTML = PLACEHOLDERS.map(p =>
+          `<div class="sidebar-item${p.id === activePlaceholder ? ' active' : ''}" data-ph="${esc(p.id)}">${esc(p.label)}</div>`
+        ).join('');
+        list.querySelectorAll('.sidebar-item').forEach(el => {
+          el.addEventListener('click', () => {
+            activePlaceholder = el.dataset.ph;
+            animation = emptyAnimation();
+            animation.placeholder = activePlaceholder;
+            baselineTargets = [];
+            activeTargetIdx = 0;
+            activePhase = 'enter';
+            quickKnobs = { duration: 1, intensity: 1, easing: '' };
+            document.getElementById('qc-duration').value = 100;
+            document.getElementById('qc-intensity').value = 100;
+            document.getElementById('qc-easing').value = '';
+            clearSelection();
+            setViewMode('editor');
+            mountEditorPlaceholder(activePlaceholder);
+            editorCtrl.cancel();
+            updateQuickVisibility();
+            renderTargetList();
+            renderPhaseEditor();
+            updateExport();
+            syncLeaveButton();
+            saveState();
+          });
+        });
+      }
+
+      // ── Selection ──
+      const stage = document.getElementById('preview-stage');
+      const overlay = document.getElementById('selection-overlay');
+      const selectBtn = document.getElementById('select-mode-btn');
+
+      function deriveSelector(el, root) {
+        if (!el || !root || !root.contains(el)) return null;
+        const part = el.getAttribute('data-motion-part');
+        if (part) return { selector: `[data-motion-part='${part}']`, fragile: false };
+        const testid = el.getAttribute('data-testid');
+        if (testid) return { selector: `[data-testid='${testid}']`, fragile: false };
+        if (el.id) {
+          const matches = root.querySelectorAll('#' + CSS.escape(el.id));
+          if (matches.length === 1) return { selector: `#${CSS.escape(el.id)}`, fragile: false };
+        }
+        const classes = [...el.classList].filter(c => c && !/^(active|hover|selected|open)$/.test(c));
+        for (const cls of classes) {
+          if (root.querySelectorAll('.' + CSS.escape(cls)).length === 1) {
+            return { selector: `.${CSS.escape(cls)}`, fragile: true };
+          }
+        }
+        const path = [];
+        let cur = el;
+        while (cur && cur !== root) {
+          const parent = cur.parentElement;
+          if (!parent) break;
+          const idx = [...parent.children].indexOf(cur) + 1;
+          path.unshift(`${cur.tagName.toLowerCase()}:nth-child(${idx})`);
+          cur = parent;
+        }
+        return { selector: path.join(' > '), fragile: true };
+      }
+
+      function positionOverlay(el, locked) {
+        if (!el || viewMode !== 'editor') {
+          overlay.classList.remove('visible', 'locked');
+          return;
+        }
+        const stageRect = stage.getBoundingClientRect();
+        const rect = el.getBoundingClientRect();
+        overlay.style.left = (rect.left - stageRect.left + stage.scrollLeft - 2) + 'px';
+        overlay.style.top = (rect.top - stageRect.top + stage.scrollTop - 2) + 'px';
+        overlay.style.width = (rect.width + 4) + 'px';
+        overlay.style.height = (rect.height + 4) + 'px';
+        overlay.classList.add('visible');
+        overlay.classList.toggle('locked', !!locked);
+      }
+
+      function setSelecting(on) {
+        selecting = on;
+        selectBtn.classList.toggle('active', on);
+        stage.classList.toggle('selecting', on);
+        document.getElementById('select-hint').style.display = on ? '' : 'none';
+        if (!on) {
+          if (selectedTarget) positionOverlay(selectedTarget.el, true);
+          else overlay.classList.remove('visible', 'locked');
+        }
+      }
+
+      function clearSelection() {
+        selectedTarget = null;
+        document.getElementById('target-info').innerHTML = '<span class="text-muted">No element selected</span>';
+        document.getElementById('target-warning').style.display = 'none';
+        document.getElementById('add-target-btn').disabled = true;
+        overlay.classList.remove('visible', 'locked');
+      }
+
+      function selectElement(el) {
+        const root = getActiveRoot();
+        if (!root || !root.contains(el) || el === root) return;
+        let targetEl = el;
+        while (targetEl && targetEl !== root) {
+          if (targetEl.hasAttribute('data-motion-part') || targetEl.hasAttribute('data-testid') || targetEl.id) break;
+          targetEl = targetEl.parentElement;
+        }
+        if (!targetEl || targetEl === root) targetEl = el;
+        const derived = deriveSelector(targetEl, root);
+        if (!derived) return;
+        selectedTarget = { el: targetEl, ...derived };
+        document.getElementById('target-info').innerHTML =
+          `<code class="text-text-primary text-[11px]">${esc(derived.selector)}</code>`;
+        const warn = document.getElementById('target-warning');
+        if (derived.fragile) {
+          warn.style.display = '';
+          warn.innerHTML = `<div class="warn-banner">This selector depends on the current DOM structure and may break when the component is refactored.</div>`;
+        } else {
+          warn.style.display = 'none';
+        }
+        document.getElementById('add-target-btn').disabled = false;
+        positionOverlay(targetEl, true);
+        setSelecting(false);
+      }
+
+      selectBtn.addEventListener('click', () => setSelecting(!selecting));
+
+      stage.addEventListener('mousemove', (e) => {
+        if (!selecting || viewMode !== 'editor') return;
+        const root = getActiveRoot();
+        if (!root) return;
+        let el = e.target;
+        if (!root.contains(el) || el === root || el === stage || el === overlay) {
+          overlay.classList.remove('visible');
+          return;
+        }
+        let highlight = el;
+        while (highlight && highlight !== root) {
+          if (highlight.hasAttribute('data-motion-part')) break;
+          highlight = highlight.parentElement;
+        }
+        if (!highlight || highlight === root) highlight = el;
+        positionOverlay(highlight, false);
+      });
+
+      stage.addEventListener('click', (e) => {
+        if (!selecting || viewMode !== 'editor') return;
+        e.preventDefault();
+        e.stopPropagation();
+        const root = getActiveRoot();
+        if (!root) return;
+        let el = e.target;
+        if (!root.contains(el) || el === root) return;
+        selectElement(el);
+      }, true);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && selecting) setSelecting(false);
+      });
+
+      document.getElementById('add-target-btn').addEventListener('click', () => {
+        if (!selectedTarget) return;
+        const t = {
+          selector: selectedTarget.selector,
+          stagger: 0,
+        };
+        if (animation.kind === 'transition') {
+          t.enter = phase({ opacity: 0, y: 8 }, { opacity: 1, y: 0 }, 0.35, 'ease-out-cubic');
+          t.leave = phase({ opacity: 1, y: 0 }, { opacity: 0, y: -6 }, 0.25, 'ease-in-quad');
+        } else {
+          t.toggle = phase({ opacity: 0.5 }, { opacity: 1 }, 0.3, 'ease-out-cubic');
+        }
+        animation.targets.push(t);
+        if (!baselineTargets) baselineTargets = [];
+        baselineTargets.push(deepClone(t));
+        activeTargetIdx = animation.targets.length - 1;
+        activePhase = animation.kind === 'transition' ? 'enter' : 'toggle';
+        if (!animation.presetId) animation.name = 'Custom';
+        updateQuickVisibility();
+        renderTargetList();
+        renderPhaseEditor();
+        rebuildEditorPreview(false);
+        updateExport();
+        saveState();
+      });
+
+      // ── Target / phase editor ──
+      function renderTargetList() {
+        const list = document.getElementById('target-list');
+        if (!animation.targets.length) {
+          list.innerHTML = '<span class="text-muted">No targets yet</span>';
+          document.getElementById('phase-editor').style.display = 'none';
+          return;
+        }
+        list.innerHTML = animation.targets.map((t, i) => `
+          <div class="target-item${i === activeTargetIdx ? ' active' : ''}" data-idx="${i}">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[11px] text-text-primary truncate">${i + 1}. ${esc(t.selector)}</span>
+              <button class="target-delete text-[10px] text-muted hover:text-[#F26F60]" data-del="${i}" title="Delete">✕</button>
+            </div>
+          </div>
+        `).join('');
+        list.querySelectorAll('.target-item').forEach(el => {
+          el.addEventListener('click', (e) => {
+            if (e.target.closest('.target-delete')) return;
+            activeTargetIdx = parseInt(el.dataset.idx, 10);
+            renderTargetList();
+            renderPhaseEditor();
+            const root = getActiveRoot();
+            const t = animation.targets[activeTargetIdx];
+            if (root && t) {
+              try {
+                const node = root.querySelector(resolveSelector(t.selector));
+                if (node) {
+                  selectedTarget = { el: node, ...deriveSelector(node, root) };
+                  document.getElementById('target-info').innerHTML =
+                    `<code class="text-text-primary text-[11px]">${esc(selectedTarget.selector)}</code>`;
+                  document.getElementById('add-target-btn').disabled = false;
+                  positionOverlay(node, true);
+                }
+              } catch { /* ignore */ }
+            }
+          });
+        });
+        list.querySelectorAll('.target-delete').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.del, 10);
+            animation.targets.splice(idx, 1);
+            if (baselineTargets) baselineTargets.splice(idx, 1);
+            if (activeTargetIdx >= animation.targets.length) activeTargetIdx = Math.max(0, animation.targets.length - 1);
+            updateQuickVisibility();
+            renderTargetList();
+            renderPhaseEditor();
+            rebuildEditorPreview(false);
+            updateExport();
+            saveState();
+          });
+        });
+      }
+
+      function buildPropInputs(containerId, values) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = PROP_KEYS.map(key => {
+          const val = values && values[key] !== undefined && values[key] !== null ? values[key] : '';
+          return `<div class="prop-field">
+            <label>${esc(key)}</label>
+            <input type="text" data-prop="${esc(key)}" value="${esc(val)}" placeholder="—">
+          </div>`;
+        }).join('');
+        container.querySelectorAll('[data-prop]').forEach(input => {
+          input.addEventListener('change', () => applyPhaseEdit());
+          input.addEventListener('input', () => {
+            clearTimeout(input._debounce);
+            input._debounce = setTimeout(() => applyPhaseEdit(), 120);
+          });
+        });
+      }
+
+      function readPropInputs(containerId) {
+        const out = {};
+        document.getElementById(containerId).querySelectorAll('[data-prop]').forEach(input => {
+          const key = input.dataset.prop;
+          let val = input.value;
+          if (val === '' || val === undefined) return;
+          if (key === 'backgroundColor' || key === 'transformOrigin' || key === 'width' || key === 'height' || key === 'borderRadius') {
+            const n = parseFloat(val);
+            out[key] = (val.endsWith('px') || val.endsWith('%') || Number.isNaN(n)) ? val : n;
+          } else {
+            const n = parseFloat(val);
+            out[key] = Number.isNaN(n) ? val : n;
+          }
+        });
+        return out;
+      }
+
+      function renderPhaseEditor() {
+        const editor = document.getElementById('phase-editor');
+        const t = animation.targets[activeTargetIdx];
+        if (!t) {
+          editor.style.display = 'none';
+          return;
+        }
+        editor.style.display = '';
+
+        const tabs = document.getElementById('phase-tabs');
+        if (animation.kind === 'transition') {
+          if (activePhase !== 'enter' && activePhase !== 'leave') activePhase = 'enter';
+          tabs.innerHTML = `
+            <button class="tab-btn${activePhase === 'enter' ? ' active' : ''}" data-phase="enter">Enter</button>
+            <button class="tab-btn${activePhase === 'leave' ? ' active' : ''}" data-phase="leave">Leave</button>
+          `;
+        } else {
+          activePhase = 'toggle';
+          tabs.innerHTML = `<button class="tab-btn active" data-phase="toggle">Toggle</button>`;
+        }
+        tabs.querySelectorAll('.tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            activePhase = btn.dataset.phase;
+            renderPhaseEditor();
+          });
+        });
+
+        if (!t[activePhase]) {
+          t[activePhase] = phase({}, {}, 0.3, 'ease-out-cubic');
+        }
+        const p = t[activePhase];
+        document.getElementById('adv-stagger').value = t.stagger || 0;
+        document.getElementById('adv-duration').value = p.duration ?? 0.3;
+        document.getElementById('adv-delay').value = p.delay ?? 0;
+        document.getElementById('adv-easing').value = p.easing || 'ease-out-cubic';
+        buildPropInputs('from-props', p.from || {});
+        buildPropInputs('to-props', p.to || {});
+      }
+
+      function syncBaselineFromCurrent() {
+        baselineTargets = deepClone(animation.targets);
+        // Invert knobs so further fiddling still works from new values
+        const d = quickKnobs.duration || 1;
+        const i = quickKnobs.intensity || 1;
+        baselineTargets = animation.targets.map(t => {
+          const base = deepClone(t);
+          base.stagger = (base.stagger || 0) / (d || 1);
+          function invertPhase(ph) {
+            if (!ph) return ph;
+            const out = deepClone(ph);
+            out.duration = (out.duration || 0.3) / d;
+            out.delay = (out.delay || 0) / d;
+            function inv(props) {
+              if (!props) return {};
+              const r = {};
+              for (const [k, v] of Object.entries(props)) {
+                if (INTENSITY_KEYS.has(k) && typeof v === 'number' && i !== 0) {
+                  r[k] = k === 'scale' ? 1 + (v - 1) / i : v / i;
+                } else r[k] = v;
+              }
+              return r;
+            }
+            out.from = inv(out.from);
+            out.to = inv(out.to);
+            if (out.keyframes) {
+              out.keyframes = out.keyframes.map(kf => ({ offset: kf.offset, props: inv(kf.props) }));
+            }
+            return out;
+          }
+          if (base.enter) base.enter = invertPhase(base.enter);
+          if (base.leave) base.leave = invertPhase(base.leave);
+          if (base.toggle) base.toggle = invertPhase(base.toggle);
+          return base;
+        });
+      }
+
+      function applyPhaseEdit() {
+        const t = animation.targets[activeTargetIdx];
+        if (!t || !t[activePhase]) return;
+        t.stagger = parseFloat(document.getElementById('adv-stagger').value) || 0;
+        const p = t[activePhase];
+        p.duration = parseFloat(document.getElementById('adv-duration').value) || 0.3;
+        p.delay = parseFloat(document.getElementById('adv-delay').value) || 0;
+        p.easing = document.getElementById('adv-easing').value || 'ease-out-cubic';
+        p.from = readPropInputs('from-props');
+        p.to = readPropInputs('to-props');
+        // Clear keyframes when manually editing from/to (simple path)
+        if (!p.keyframes) { /* keep null */ }
+        else {
+          // Update first/last keyframe props to match
+          if (p.keyframes.length) {
+            p.keyframes[0].props = { ...p.from };
+            p.keyframes[p.keyframes.length - 1].props = { ...p.to };
+          }
+        }
+        syncBaselineFromCurrent();
+        rebuildEditorPreview(false);
+        updateExport();
+        saveState();
+      }
+
+      ['adv-stagger', 'adv-duration', 'adv-delay', 'adv-easing'].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('change', () => applyPhaseEdit());
+        if (el.tagName === 'INPUT') {
+          el.addEventListener('input', () => {
+            clearTimeout(el._debounce);
+            el._debounce = setTimeout(() => applyPhaseEdit(), 120);
+          });
+        }
+      });
+
+      // ── Editor playback ──
+      function playEditorPhase(phaseName) {
+        const root = getActiveRoot();
+        if (!root || !animation.targets.length) return;
+        editorCtrl.build(root, animation.targets, phaseName);
+        editorCtrl.play();
+        updateScrubber(0);
+      }
+
+      function rebuildEditorPreview(autoPlay) {
+        const root = getActiveRoot();
+        if (!root || !animation.targets.length) {
+          editorCtrl.cancel();
+          updateScrubber(0);
+          return;
+        }
+        const phaseName = animation.kind === 'transition' ? 'enter' : 'toggle';
+        editorCtrl.build(root, animation.targets, phaseName);
+        if (autoPlay) editorCtrl.play();
+        else updateScrubber(0);
+      }
+
+      function updateScrubber(p) {
+        const scrubber = document.getElementById('scrubber');
+        if (!scrubbing) scrubber.value = Math.round(p * 1000);
+        document.getElementById('progress-label').textContent = Math.round(p * 100) + '%';
+      }
+
+      document.getElementById('btn-play').addEventListener('click', () => {
+        playEditorPhase(animation.kind === 'transition' ? 'enter' : 'toggle');
+      });
+      document.getElementById('btn-leave').addEventListener('click', () => {
+        if (animation.kind === 'transition') playEditorPhase('leave');
+        else {
+          // Off: build toggle then reverse
+          const root = getActiveRoot();
+          if (!root) return;
+          editorCtrl.build(root, animation.targets, 'toggle');
+          for (const a of editorCtrl.anims) {
+            a.currentTime = editorCtrl.totalMs;
+            a.reverse();
+          }
+          editorCtrl._startTick();
+        }
+      });
+      document.getElementById('btn-pause').addEventListener('click', () => editorCtrl.pause());
+      document.getElementById('btn-replay').addEventListener('click', () => {
+        playEditorPhase(animation.kind === 'transition' ? 'enter' : 'toggle');
+      });
+
+      const scrubberEl = document.getElementById('scrubber');
+      scrubberEl.addEventListener('pointerdown', () => { scrubbing = true; });
+      scrubberEl.addEventListener('pointerup', () => { scrubbing = false; });
+      scrubberEl.addEventListener('input', () => {
+        if (!editorCtrl.anims.length) rebuildEditorPreview(false);
+        editorCtrl.seek(scrubberEl.value / 1000);
+      });
+
+      document.getElementById('speed-control').addEventListener('input', (e) => {
+        const speed = parseFloat(e.target.value) / 100;
+        document.getElementById('speed-label').textContent = speed.toFixed(1).replace(/\.0$/, '') + '×';
+        editorCtrl.setRate(speed);
+      });
+
+      // ── Export ──
+      function generateVueExport() {
+        if (!animation.targets.length) return '// Pick a preset to generate export';
+        const name = slugify(animation.name || animation.presetId || 'motion');
+        const modeAttr = animation.outIn ? ' mode="out-in"' : '';
+
+        let code = `<!-- Vue Transition — paste into your component -->\n`;
+        if (animation.outIn) {
+          code += `<!-- Use mode="out-in" so leave finishes before enter (swap). -->\n`;
+        }
+        code += `<Transition name="${name}" appear${modeAttr}>\n`;
+        code += `  <!-- your element / component -->\n`;
+        code += `</Transition>\n\n`;
+        code += `<style>\n`;
+
+        for (const t of animation.targets) {
+          const sel = resolveSelector(t.selector);
+          const isRoot = sel === "[data-motion-part='root']";
+          const child = isRoot ? '' : ` ${sel}`;
+
+          for (const phaseName of ['enter', 'leave']) {
+            const p = t[phaseName];
+            if (!p) continue;
+            const prefix = `${name}-${phaseName}`;
+            const dur = p.duration || 0.3;
+            const delay = p.delay || 0;
+            const ease = easingCss(p.easing);
+            const fromCss = propsToCss(p.from);
+            const toCss = propsToCss(p.to);
+
+            if (p.keyframes && p.keyframes.length > 2) {
+              const kfName = `${name}-${phaseName}-${slugify(t.selector)}`;
+              code += `@keyframes ${kfName} {\n`;
+              for (const kf of p.keyframes) {
+                const pct = Math.round((kf.offset || 0) * 100);
+                code += `  ${pct}% {\n${cssDecls(propsToCss(kf.props), 4)}\n  }\n`;
+              }
+              code += `}\n`;
+              code += `.${prefix}-active${child} {\n`;
+              code += `  animation: ${kfName} ${dur}s ${ease} ${delay}s both;\n`;
+              code += `}\n\n`;
+            } else {
+              code += `.${prefix}-from${child} {\n${cssDecls(fromCss, 2)}\n}\n`;
+              code += `.${prefix}-to${child} {\n${cssDecls(toCss, 2)}\n}\n`;
+              code += `.${prefix}-active${child} {\n`;
+              code += `  transition: all ${dur}s ${ease} ${delay}s;\n`;
+              code += `}\n`;
+
+              // Stagger via nth-child
+              if (t.stagger && t.stagger > 0) {
+                const root = getActiveRoot();
+                let count = 3;
+                if (root) {
+                  try { count = Math.max(1, root.querySelectorAll(sel).length); } catch { /* ignore */ }
+                }
+                code += `/* Stagger — adjust count to match your list length */\n`;
+                for (let i = 1; i <= count; i++) {
+                  const d = delay + (i - 1) * t.stagger;
+                  code += `.${prefix}-active${child}:nth-child(${i}) {\n`;
+                  code += `  transition-delay: ${d}s;\n`;
+                  code += `}\n`;
+                }
+              }
+              code += `\n`;
+            }
+          }
+        }
+
+        code += `</style>\n`;
+        return code;
+      }
+
+      function generateCssExport() {
+        if (!animation.targets.length) return '// Pick a preset to generate export';
+        const name = 'motion-' + slugify(animation.name || animation.presetId || 'fx');
+
+        let code = `/* Class-toggle CSS — add .${name}.is-on on the root */\n\n`;
+
+        for (const t of animation.targets) {
+          const sel = resolveSelector(t.selector);
+          const isRoot = sel === "[data-motion-part='root']";
+          const p = t.toggle;
+          if (!p) continue;
+          const dur = p.duration || 0.3;
+          const ease = easingCss(p.easing);
+          const fromCss = propsToCss(p.from);
+          const toCss = propsToCss(p.to);
+          const offSel = isRoot ? `.${name}` : `.${name} ${sel}`;
+          const onSel = isRoot ? `.${name}.is-on` : `.${name}.is-on ${sel}`;
+
+          if (p.keyframes && p.keyframes.length > 2) {
+            const kfName = `${name}-${slugify(t.selector)}`;
+            code += `@keyframes ${kfName} {\n`;
+            for (const kf of p.keyframes) {
+              const pct = Math.round((kf.offset || 0) * 100);
+              code += `  ${pct}% {\n${cssDecls(propsToCss(kf.props), 4)}\n  }\n`;
+            }
+            code += `}\n`;
+            code += `${onSel} {\n`;
+            code += `  animation: ${kfName} ${dur}s ${ease} both;\n`;
+            code += `}\n\n`;
+          } else {
+            code += `${offSel} {\n${cssDecls(fromCss, 2)}\n`;
+            code += `  transition: all ${dur}s ${ease};\n`;
+            code += `}\n`;
+            code += `${onSel} {\n${cssDecls(toCss, 2)}\n}\n\n`;
+          }
+        }
+
+        code += `/* Usage: rootEl.classList.toggle('is-on') with class '${name}' on root */\n`;
+        return code;
+      }
+
+      function updateExport() {
+        const out = document.getElementById('export-output');
+        const label = document.getElementById('export-kind-label');
+        if (!animation.targets.length) {
+          out.textContent = '// Pick a preset to generate export';
+          label.textContent = '—';
+          return;
+        }
+        if (animation.kind === 'transition') {
+          label.textContent = 'Vue <Transition>';
+          out.textContent = generateVueExport();
+        } else {
+          label.textContent = 'Class-toggle CSS';
+          out.textContent = generateCssExport();
+        }
+      }
+
+      document.getElementById('copy-export-btn').addEventListener('click', async () => {
+        const text = document.getElementById('export-output').textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          const btn = document.getElementById('copy-export-btn');
+          btn.textContent = 'Copied';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 1200);
+        } catch { /* ignore */ }
+      });
+
+      // ── GitLab ──
+      async function loadGitlabProjects() {
+        const sel = document.getElementById('gitlab-repo');
+        sel.innerHTML = '<option value="">Loading…</option>';
+        try {
+          const res = await workerFetch('/gitlab/projects');
+          const projects = await res.json();
+          gitlabProjects = FLEET_REPOS.map(repo => {
+            const p = projects.find(pr =>
+              pr.path === repo.path ||
+              pr.path.endsWith('/' + repo.path) ||
+              pr.path.includes(repo.path)
+            );
+            return p ? { ...repo, id: p.id, branch: p.defaultBranch || 'main' } : null;
+          }).filter(Boolean);
+          sel.innerHTML = '<option value="">Select repo…</option>' +
+            gitlabProjects.map((p, i) => `<option value="${i}">${esc(p.label)}</option>`).join('');
+        } catch (err) {
+          sel.innerHTML = '<option value="">Failed to load</option>';
+          document.getElementById('gitlab-file-list').innerHTML =
+            `<div class="text-[11px] text-[#F26F60] p-3">${esc(err.message)}</div>`;
+        }
+      }
+
+      document.getElementById('gitlab-repo').addEventListener('change', async (e) => {
+        const idx = e.target.value;
+        const list = document.getElementById('gitlab-file-list');
+        if (idx === '') {
+          list.innerHTML = '<div class="text-[11px] text-muted p-3">Select a repository to browse .vue files.</div>';
+          gitlabFiles = [];
+          return;
+        }
+        const proj = gitlabProjects[parseInt(idx, 10)];
+        list.innerHTML = '<div class="text-[11px] text-muted p-3">Loading tree…</div>';
+        try {
+          const res = await workerFetch('/gitlab/tree', {
+            projectPath: proj.path,
+            path: 'src',
+            ref: proj.branch,
+            recursive: true,
+          });
+          const entries = await res.json();
+          gitlabFiles = entries
+            .filter(en => en.type === 'blob' && en.name.endsWith('.vue'))
+            .map(en => ({ path: en.path, name: en.name, project: proj }));
+          renderGitlabList();
+        } catch (err) {
+          list.innerHTML = `<div class="text-[11px] text-[#F26F60] p-3">${esc(err.message)}</div>`;
+        }
+      });
+
+      function renderGitlabList(filter) {
+        const list = document.getElementById('gitlab-file-list');
+        const q = (filter || '').toLowerCase().trim();
+        const files = q
+          ? gitlabFiles.filter(f => f.path.toLowerCase().includes(q) || f.name.toLowerCase().includes(q))
+          : gitlabFiles;
+        if (!files.length) {
+          list.innerHTML = '<div class="text-[11px] text-muted p-3">No .vue files found.</div>';
+          return;
+        }
+        const groups = {};
+        for (const f of files) {
+          const dir = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '';
+          if (!groups[dir]) groups[dir] = [];
+          groups[dir].push(f);
+        }
+        let html = '';
+        for (const [dir, items] of Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]))) {
+          html += `<div class="group-header">${esc(dir || '/')} (${items.length})</div>`;
+          for (const f of items.sort((a, b) => a.name.localeCompare(b.name))) {
+            html += `<div class="sidebar-item" data-path="${esc(f.path)}" title="${esc(f.path)}">
+              <span class="truncate block">${esc(f.name)}</span>
+            </div>`;
+          }
+        }
+        list.innerHTML = html;
+        list.querySelectorAll('.sidebar-item').forEach(el => {
+          el.addEventListener('click', () => {
+            list.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+            el.classList.add('active');
+            openVueSource(el.dataset.path);
+          });
+        });
+      }
+
+      document.getElementById('gitlab-search').addEventListener('input', (e) => {
+        clearTimeout(e.target._debounce);
+        e.target._debounce = setTimeout(() => renderGitlabList(e.target.value), 150);
+      });
+
+      async function openVueSource(filePath) {
+        const idx = document.getElementById('gitlab-repo').value;
+        if (idx === '') return;
+        const proj = gitlabProjects[parseInt(idx, 10)];
+        const content = document.getElementById('source-content');
+        setViewMode('source');
+        content.textContent = 'Loading…';
+        document.getElementById('stage-label').textContent = filePath;
+        document.getElementById('source-panel').style.display = 'flex';
+        try {
+          const res = await workerFetch('/gitlab/file', {
+            projectPath: proj.path,
+            filePath,
+            ref: proj.branch,
+          });
+          content.textContent = await res.text();
+        } catch (err) {
+          content.textContent = 'Error: ' + err.message;
+        }
+      }
+
+      // ── Auth wiring ──
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('login-password').value;
+        const errEl = document.getElementById('login-error');
+        const btn = document.getElementById('login-btn');
+        if (!pw) { errEl.textContent = 'Enter a password'; return; }
+        btn.textContent = '...';
+        btn.disabled = true;
+        errEl.innerHTML = '&nbsp;';
+        try {
+          const res = await fetch(`${WORKER_URL}/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw }),
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok) {
+            errEl.textContent = json?.error || 'Authentication failed';
+            return;
+          }
+          setToken(json.token);
+          showApp();
+          initEditor();
+        } catch {
+          errEl.textContent = 'Could not reach server';
+        } finally {
+          btn.textContent = 'Sign in';
+          btn.disabled = false;
+        }
+      });
+
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        if (!IS_LOCAL) { clearToken(); showLogin(); }
+      });
+
+      function initEditor() {
+        fillEasingSelect(document.getElementById('qc-easing'), true);
+        fillEasingSelect(document.getElementById('adv-easing'), false);
+
+        const restored = loadState();
+        renderPlaceholderList();
+        renderGallery();
+
+        document.getElementById('qc-duration').value = Math.round((quickKnobs.duration || 1) * 100);
+        document.getElementById('qc-intensity').value = Math.round((quickKnobs.intensity || 1) * 100);
+        document.getElementById('qc-easing').value = quickKnobs.easing || '';
+        document.getElementById('qc-duration-val').textContent =
+          (quickKnobs.duration || 1).toFixed(2).replace(/\.?0+$/, '') + '×';
+        document.getElementById('qc-intensity-val').textContent =
+          (quickKnobs.intensity || 1).toFixed(2).replace(/\.?0+$/, '') + '×';
+
+        if (restored && viewMode === 'editor' && animation.targets.length > 0) {
+          document.querySelectorAll('#left-tabs .tab-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.tab === 'gallery')
+          );
+          setViewMode('editor');
+          if (baselineTargets) applyQuickKnobs();
+          updateQuickVisibility();
+          renderTargetList();
+          renderPhaseEditor();
+          updateExport();
+          syncLeaveButton();
+        } else {
+          viewMode = 'gallery';
+          document.querySelectorAll('#left-tabs .tab-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.tab === 'gallery')
+          );
+          setViewMode('gallery');
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        if (IS_LOCAL) {
+          console.info('%c[DEV]%c Auth bypassed locally', 'color:#eab308;font-weight:bold', 'color:inherit');
+          showApp();
+          initEditor();
+          return;
+        }
+        if (isTokenValid()) {
+          showApp();
+          initEditor();
+        } else {
+          clearToken();
+          showLogin();
+        }
+      });
+    })();
+    </script>
+  </body>
+</html>

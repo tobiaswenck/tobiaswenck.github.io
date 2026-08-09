@@ -1,0 +1,246 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="30%" r="90%">
+      <stop offset="0%" stop-color="#101B30"/>
+      <stop offset="60%" stop-color="#070C19"/>
+      <stop offset="100%" stop-color="#03060D"/>
+    </radialGradient>
+
+    <linearGradient id="barProgress" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5B9CFF"/>
+      <stop offset="100%" stop-color="#1E6FFF"/>
+    </linearGradient>
+    <linearGradient id="barShipped" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#22A865"/>
+      <stop offset="100%" stop-color="#0F7A45"/>
+    </linearGradient>
+
+    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <pattern id="dots" width="3" height="3" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="0.6" fill="#5B9CFF" opacity="0.35"/>
+    </pattern>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+
+  <!-- ===== HEADER ===== -->
+  <g>
+    <!-- brand mark -->
+    <circle cx="90" cy="78" r="22" fill="none" stroke="#5B9CFF" stroke-width="2"/>
+    <text x="90" y="86" text-anchor="middle" font-size="22" font-weight="700" fill="#FFFFFF">E</text>
+    <text x="128" y="72" font-size="13" font-weight="600" fill="#FFFFFF" letter-spacing="2">EDITH</text>
+    <text x="128" y="90" font-size="11" fill="#7A8AA8" letter-spacing="1">PLATFORM</text>
+
+    <text x="90" y="170" font-size="44" font-weight="800" fill="#FFFFFF" letter-spacing="-0.5">Produkt-Roadmap 2026</text>
+    <text x="90" y="202" font-size="16" fill="#8A9BB8">Was wir dieses Jahr �ber die gesamte EDITH-Plattform ausliefern.</text>
+
+    <!-- Legend -->
+    <g transform="translate(1370, 150)">
+      <rect x="0" y="0" width="460" height="60" rx="10" fill="#0C1426" stroke="#1A2440" stroke-width="1"/>
+      <!-- shipped -->
+      <rect x="20" y="22" width="16" height="16" rx="4" fill="url(#barShipped)"/>
+      <text x="44" y="35" font-size="13" font-weight="500" fill="#C9D4E8">Abgeschlossen</text>
+      <!-- in progress -->
+      <rect x="170" y="22" width="16" height="16" rx="4" fill="url(#barProgress)" filter="url(#glow)"/>
+      <text x="194" y="35" font-size="13" font-weight="500" fill="#C9D4E8">In Arbeit</text>
+      <!-- planned -->
+      <rect x="290" y="22" width="16" height="16" rx="4" fill="url(#dots)" stroke="#3A5599" stroke-width="1.2"/>
+      <text x="314" y="35" font-size="13" font-weight="500" fill="#C9D4E8">Geplant</text>
+    </g>
+  </g>
+
+  <!-- ===== TIMELINE HEADERS ===== -->
+  <g transform="translate(0, 250)">
+    <!-- quarter labels + months -->
+    <g font-weight="700" fill="#FFFFFF" text-anchor="middle">
+      <text x="480" y="0" font-size="26" letter-spacing="2">Q1</text>
+      <text x="880" y="0" font-size="26" letter-spacing="2">Q2</text>
+      <text x="1280" y="0" font-size="26" letter-spacing="2">Q3</text>
+      <text x="1680" y="0" font-size="26" letter-spacing="2">Q4</text>
+    </g>
+    <g font-size="11" fill="#5C6D8E" text-anchor="middle" letter-spacing="1.5">
+      <text x="346" y="24">JAN</text><text x="480" y="24">FEB</text><text x="614" y="24">M�R</text>
+      <text x="746" y="24">APR</text><text x="880" y="24">MAI</text><text x="1014" y="24">JUN</text>
+      <text x="1146" y="24">JUL</text><text x="1280" y="24">AUG</text><text x="1414" y="24">SEP</text>
+      <text x="1546" y="24">OKT</text><text x="1680" y="24">NOV</text><text x="1814" y="24">DEZ</text>
+    </g>
+    <!-- accent underline under quarter headers -->
+    <line x1="280" y1="42" x2="1880" y2="42" stroke="#1A2440" stroke-width="1"/>
+  </g>
+
+  <!-- ===== GRID ===== -->
+  <g>
+    <!-- vertical quarter dividers -->
+    <line x1="680" y1="220" x2="680" y2="960" stroke="#1A2440" stroke-width="1"/>
+    <line x1="1080" y1="220" x2="1080" y2="960" stroke="#1A2440" stroke-width="1"/>
+    <line x1="1480" y1="220" x2="1480" y2="960" stroke="#1A2440" stroke-width="1"/>
+    <!-- thin month ticks -->
+    <g stroke="#13203A" stroke-width="1" stroke-dasharray="2,4">
+      <line x1="412" y1="310" x2="412" y2="960"/>
+      <line x1="546" y1="310" x2="546" y2="960"/>
+      <line x1="812" y1="310" x2="812" y2="960"/>
+      <line x1="946" y1="310" x2="946" y2="960"/>
+      <line x1="1212" y1="310" x2="1212" y2="960"/>
+      <line x1="1346" y1="310" x2="1346" y2="960"/>
+      <line x1="1612" y1="310" x2="1612" y2="960"/>
+      <line x1="1746" y1="310" x2="1746" y2="960"/>
+    </g>
+  </g>
+
+  <!-- ===== ROWS ===== -->
+  <!-- Each row: y top, height 120; sub-row1 bar y+28, sub-row2 bar y+78; bar height 28; label above bar at y_bar-8 -->
+
+  <!-- Row 1: WBT, color #FF6B9D, y=310 -->
+  <g transform="translate(0, 310)">
+    <rect x="60" y="0" width="1820" height="120" fill="#FFFFFF" opacity="0.018"/>
+    <rect x="60" y="0" width="4" height="120" fill="#FF6B9D"/>
+    <g transform="translate(90, 0)">
+      <!-- icon: book -->
+      <rect x="0" y="42" width="34" height="34" rx="6" fill="#FF6B9D" opacity="0.15"/>
+      <path d="M8 52 h18 v18 h-18 z M8 52 v18 M17 52 v18" stroke="#FF6B9D" stroke-width="1.6" fill="none"/>
+      <text x="50" y="58" font-size="20" font-weight="700" fill="#FFFFFF">WBT</text>
+      <text x="50" y="78" font-size="11" font-weight="500" fill="#5C6D8E" letter-spacing="1.2">WEB BASED TRAINING</text>
+    </g>
+    <!-- Lektionsinhalte EDITH: Q2 start to Q3 end (680 -> 1480), in progress -->
+    <g>
+      <text x="690" y="50" font-size="13" font-weight="500" fill="#E6EDFA">Lektionsinhalte EDITH</text>
+      <rect x="680" y="58" width="800" height="28" rx="6" fill="url(#barProgress)" filter="url(#glow)"/>
+    </g>
+  </g>
+
+  <!-- Row 2: DocSync, color #4ECDC4, y=430 -->
+  <g transform="translate(0, 430)">
+    <rect x="60" y="0" width="1820" height="120" fill="#FFFFFF" opacity="0.025"/>
+    <rect x="60" y="0" width="4" height="120" fill="#4ECDC4"/>
+    <g transform="translate(90, 0)">
+      <rect x="0" y="42" width="34" height="34" rx="6" fill="#4ECDC4" opacity="0.15"/>
+      <path d="M8 54 h18 M8 60 h18 M8 66 h12" stroke="#4ECDC4" stroke-width="1.8" fill="none"/>
+      <text x="50" y="58" font-size="20" font-weight="700" fill="#FFFFFF">DocSync</text>
+      <text x="50" y="78" font-size="11" font-weight="500" fill="#5C6D8E" letter-spacing="1.2">DOKUMENTEN-PLATTFORM</text>
+    </g>
+    <!-- Neue App: Q2 (680-1080), in progress -->
+    <text x="690" y="50" font-size="13" font-weight="500" fill="#E6EDFA">Neue App</text>
+    <rect x="680" y="58" width="400" height="28" rx="6" fill="url(#barProgress)" filter="url(#glow)"/>
+    <!-- Workflows: Q3, planned -->
+    <text x="1090" y="50" font-size="13" font-weight="500" fill="#E6EDFA">Workflows</text>
+    <rect x="1080" y="58" width="400" height="28" rx="6" fill="url(#dots)" stroke="#3A5599" stroke-width="1.2"/>
+    <!-- LLM Integration: Q4, planned -->
+    <text x="1490" y="50" font-size="13" font-weight="500" fill="#E6EDFA">LLM Integration</text>
+    <rect x="1480" y="58" width="400" height="28" rx="6" fill="url(#dots)" stroke="#3A5599" stroke-width="1.2"/>
+  </g>
+
+  <!-- Row 3: GPS-S, color #FFD93D, y=550 -->
+  <g transform="translate(0, 550)">
+    <rect x="60" y="0" width="1820" height="120" fill="#FFFFFF" opacity="0.018"/>
+    <rect x="60" y="0" width="4" height="120" fill="#FFD93D"/>
+    <g transform="translate(90, 0)">
+      <rect x="0" y="42" width="34" height="34" rx="6" fill="#FFD93D" opacity="0.15"/>
+      <circle cx="17" cy="58" r="4" fill="none" stroke="#FFD93D" stroke-width="1.8"/>
+      <path d="M17 62 l-5 9 h10 z" fill="#FFD93D"/>
+      <text x="50" y="58" font-size="20" font-weight="700" fill="#FFFFFF">GPS-S</text>
+      <text x="50" y="78" font-size="11" font-weight="500" fill="#5C6D8E" letter-spacing="1.2">STRECKENKENNTNIS</text>
+    </g>
+    <!-- Neue Kartenansicht App: Q2, in progress -->
+    <text x="690" y="50" font-size="13" font-weight="500" fill="#E6EDFA">Neue Kartenansicht App</text>
+    <rect x="680" y="58" width="400" height="28" rx="6" fill="url(#barProgress)" filter="url(#glow)"/>
+    <!-- Videostreckenkenntnis: Q3, planned -->
+    <text x="1090" y="50" font-size="13" font-weight="500" fill="#E6EDFA">Videostreckenkenntnis</text>
+    <rect x="1080" y="58" width="400" height="28" rx="6" fill="url(#dots)" stroke="#3A5599" stroke-width="1.2"/>
+  </g>
+
+  <!-- Row 4: KomReg, color #A78BFA, y=670 -->
+  <g transform="translate(0, 670)">
+    <rect x="60" y="0" width="1820" height="120" fill="#FFFFFF" opacity="0.025"/>
+    <rect x="60" y="0" width="4" height="120" fill="#A78BFA"/>
+    <g transform="translate(90, 0)">
+      <rect x="0" y="42" width="34" height="34" rx="6" fill="#A78BFA" opacity="0.15"/>
+      <path d="M10 60 l5 5 l9 -10" stroke="#A78BFA" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="50" y="58" font-size="20" font-weight="700" fill="#FFFFFF">KomReg</text>
+      <text x="50" y="78" font-size="11" font-weight="500" fill="#5C6D8E" letter-spacing="1.2">KOMMERZIELLE REGISTRIERUNG</text>
+    </g>
+    <!-- Unterschrift ZB in App: Q2, sub1, in progress -->
+    <text x="690" y="20" font-size="13" font-weight="500" fill="#E6EDFA">Unterschrift ZB in App</text>
+    <rect x="680" y="28" width="400" height="28" rx="6" fill="url(#barProgress)" filter="url(#glow)"/>
+    <!-- �berwachung / �berpr�fung: Q2 (mid), sub2, in progress -->
+    <text x="816" y="70" font-size="13" font-weight="500" fill="#E6EDFA">�berwachung / �berpr�fung</text>
+    <rect x="806" y="78" width="280" height="28" rx="6" fill="url(#barProgress)" filter="url(#glow)"/>
+    <!-- L�ndersupport: Q4, sub1, planned -->
+    <text x="1490" y="20" font-size="13" font-weight="500" fill="#E6EDFA">L�ndersupport</text>
+    <rect x="1480" y="28" width="400" height="28" rx="6" fill="url(#dots)" stroke="#3A5599" stroke-width="1.2"/>
+  </g>
+
+  <!-- Row 5: Report, color #FB923C, y=790 -->
+  <g transform="translate(0, 790)">
+    <rect x="60" y="0" width="1820" height="120" fill="#FFFFFF" opacity="0.018"/>
+    <rect x="60" y="0" width="4" height="120" fill="#FB923C"/>
+    <g transform="translate(90, 0)">
+      <rect x="0" y="42" width="34" height="34" rx="6" fill="#FB923C" opacity="0.15"/>
+      <path d="M8 70 v-10 M14 70 v-16 M20 70 v-8 M26 70 v-18" stroke="#FB923C" stroke-width="2" stroke-linecap="round"/>
+      <text x="50" y="58" font-size="20" font-weight="700" fill="#FFFFFF">Report</text>
+      <text x="50" y="78" font-size="11" font-weight="500" fill="#5C6D8E" letter-spacing="1.2">SCHADENS-REPORTING</text>
+    </g>
+    <!-- Verbesserung Zugbildung: Q1, sub1, shipped -->
+    <text x="290" y="20" font-size="13" font-weight="500" fill="#E6EDFA">Verbesserung Zugbildung</text>
+    <rect x="280" y="28" width="400" height="28" rx="6" fill="url(#barShipped)"/>
+    <!-- Bilderkennung Wagennummern: Q2-Q3, sub1, in progress -->
+    <text x="690" y="20" font-size="13" font-weight="500" fill="#E6EDFA">Bilderkennung Wagennummern</text>
+    <rect x="680" y="28" width="600" height="28" rx="6" fill="url(#barProgress)" filter="url(#glow)"/>
+    <!-- Wagensch�den: late Q3, sub1, planned -->
+    <text x="1290" y="20" font-size="13" font-weight="500" fill="#E6EDFA">Wagensch�den</text>
+    <rect x="1280" y="28" width="200" height="28" rx="6" fill="url(#dots)" stroke="#3A5599" stroke-width="1.2"/>
+    <!-- Zugbildung Webanwendung: Q2, sub2, in progress -->
+    <text x="690" y="70" font-size="13" font-weight="500" fill="#E6EDFA">Zugbildung Webanwendung</text>
+    <rect x="680" y="78" width="400" height="28" rx="6" fill="url(#barProgress)" filter="url(#glow)"/>
+    <!-- Instandhaltung: Q3, sub2, planned -->
+    <text x="1090" y="70" font-size="13" font-weight="500" fill="#E6EDFA">Instandhaltung</text>
+    <rect x="1080" y="78" width="400" height="28" rx="6" fill="url(#dots)" stroke="#3A5599" stroke-width="1.2"/>
+  </g>
+
+  <!-- Row 6: Allgemein, color #60A5FA, y=910 -->
+  <g transform="translate(0, 910)">
+    <rect x="60" y="0" width="1820" height="120" fill="#FFFFFF" opacity="0.025"/>
+    <rect x="60" y="0" width="4" height="120" fill="#60A5FA"/>
+    <g transform="translate(90, 0)">
+      <rect x="0" y="42" width="34" height="34" rx="6" fill="#60A5FA" opacity="0.15"/>
+      <circle cx="17" cy="59" r="9" fill="none" stroke="#60A5FA" stroke-width="1.8"/>
+      <path d="M8 59 h18 M17 50 v18" stroke="#60A5FA" stroke-width="1.4"/>
+      <text x="50" y="58" font-size="20" font-weight="700" fill="#FFFFFF">Allgemein</text>
+      <text x="50" y="78" font-size="11" font-weight="500" fill="#5C6D8E" letter-spacing="1.2">PLATTFORM-WEIT</text>
+    </g>
+    <!-- Neue Fahrplan-App: Q1, sub1, shipped -->
+    <text x="290" y="20" font-size="13" font-weight="500" fill="#E6EDFA">Neue Fahrplan-App</text>
+    <rect x="280" y="28" width="400" height="28" rx="6" fill="url(#barShipped)"/>
+    <!-- ECM Portal: Q3, sub1, planned -->
+    <text x="1090" y="20" font-size="13" font-weight="500" fill="#E6EDFA">ECM Portal</text>
+    <rect x="1080" y="28" width="400" height="28" rx="6" fill="url(#dots)" stroke="#3A5599" stroke-width="1.2"/>
+    <!-- Community Features: Q4, sub1, planned -->
+    <text x="1490" y="20" font-size="13" font-weight="500" fill="#E6EDFA">Community Features</text>
+    <rect x="1480" y="28" width="400" height="28" rx="6" fill="url(#dots)" stroke="#3A5599" stroke-width="1.2"/>
+    <!-- Umstellung Webanwendung neues Design: Q2-Q3, sub2, in progress -->
+    <text x="690" y="70" font-size="13" font-weight="500" fill="#E6EDFA">Umstellung Webanwendung  neues Design</text>
+    <rect x="680" y="78" width="800" height="28" rx="6" fill="url(#barProgress)" filter="url(#glow)"/>
+  </g>
+
+  <!-- ===== TODAY LINE ===== -->
+  <!-- May 19 H 54% through Q2 -> x = 680 + 0.54*400 = 896 -->
+  <g>
+    <line x1="896" y1="232" x2="896" y2="1030" stroke="#FFD93D" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85"/>
+    <g transform="translate(896, 232)">
+      <rect x="-46" y="-22" width="92" height="22" rx="11" fill="#FFD93D"/>
+      <text x="0" y="-7" text-anchor="middle" font-size="11" font-weight="700" fill="#1A1300" letter-spacing="1.5">HEUTE � 19. MAI</text>
+    </g>
+  </g>
+
+  <!-- ===== FOOTER ===== -->
+  <g transform="translate(0, 1040)">
+    <text x="90" y="0" font-size="12" fill="#5C6D8E">Stand: 19. Mai 2026 � Aktualisiert quartalsweise</text>
+    <text x="1830" y="0" text-anchor="end" font-size="12" font-weight="600" fill="#8A9BB8">edith.app/roadmap</text>
+  </g>
+</svg>
