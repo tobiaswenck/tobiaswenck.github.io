@@ -51,7 +51,6 @@ export function unshapedHint(action) {
  * @param {{ onDone?: (action) => void, startStep?: string }} opts
  */
 export function openShaper(action, { onDone = null, startStep = null } = {}) {
-  const live = { ...action };
   const draft = {
     type: action.type || 'do',
     estimateMinutes: action.estimateMinutes,
@@ -428,8 +427,9 @@ export function openShaper(action, { onDone = null, startStep = null } = {}) {
         projectInput.addEventListener('change', () => { draft.project = projectInput.value.trim(); });
         body.append(projRow, projectInput);
 
-        // Energy
-        body.append(el('p', { class: 'step-hint spaced', text: 'Energy it needs' }));
+        // Energy + pin side by side when space allows
+        const meta = el('div', { class: 'context-meta' });
+        meta.append(el('p', { class: 'step-hint', text: 'Energy' }));
         const energyOpts = ENERGIES.map((e) => ({
           id: e,
           label: e === 'any' ? 'Any' : e[0].toUpperCase() + e.slice(1),
@@ -444,10 +444,10 @@ export function openShaper(action, { onDone = null, startStep = null } = {}) {
             }
           },
         });
-        body.append(energyRow);
+        meta.append(energyRow);
 
-        // Pin
-        body.append(el('p', { class: 'step-hint spaced', text: 'Priority' }));
+        const pinBlock = el('div', { class: 'context-pin' });
+        pinBlock.append(el('p', { class: 'step-hint', text: 'Priority' }));
         const pinRow = chipRow([
           { id: 'normal', label: 'Normal', value: false },
           { id: 'pin', label: 'Pin as next', value: true },
@@ -460,7 +460,9 @@ export function openShaper(action, { onDone = null, startStep = null } = {}) {
             }
           },
         });
-        body.append(pinRow);
+        pinBlock.append(pinRow);
+        meta.append(pinBlock);
+        body.append(meta);
 
         step.append(body);
 
@@ -490,188 +492,189 @@ export function openShaper(action, { onDone = null, startStep = null } = {}) {
 
       function renderAdvanced(step) {
         step.append(el('h2', { class: 'step-q', text: 'Everything else' }));
-        step.append(el('p', { class: 'step-hint', text: 'Optional. Skip if you don’t need it.' }));
+        step.append(el('p', { class: 'step-hint', text: 'Optional — open only what you need.' }));
 
         const adv = el('div', { class: 'shaper-advanced' });
 
-        // Status
-        const statusSec = el('div', { class: 'adv-section' },
-          el('span', { class: 'section-label', text: 'Status' }));
-        const statusRow = chipRow(
-          ['inbox', 'ready', 'scheduled', 'waiting', 'blocked'].map((s) => ({
-            id: s, label: STATUS_LABEL[s], value: s,
-          })),
-          {
-            value: draft.status,
+        function panel(label, buildBody, { open = false } = {}) {
+          const details = el('details', { class: 'adv-panel' });
+          if (open) details.open = true;
+          details.append(el('summary', { text: label }));
+          const body = el('div', { class: 'adv-panel-body' });
+          buildBody(body);
+          details.append(body);
+          // Only one panel open at a time keeps the modal short
+          details.addEventListener('toggle', () => {
+            if (!details.open) return;
+            for (const other of adv.querySelectorAll('details.adv-panel')) {
+              if (other !== details) other.open = false;
+            }
+          });
+          adv.append(details);
+          return details;
+        }
+
+        panel('Status', (body) => {
+          const statusRow = chipRow(
+            ['inbox', 'ready', 'scheduled', 'waiting', 'blocked'].map((s) => ({
+              id: s, label: STATUS_LABEL[s], value: s,
+            })),
+            {
+              value: draft.status,
+              onPick: (opt) => {
+                draft.status = opt.value;
+                for (const b of statusRow.querySelectorAll('.chip')) {
+                  b.classList.toggle('selected', b.dataset.id === opt.id);
+                }
+              },
+            },
+          );
+          body.append(statusRow);
+          currentPicker = statusRow;
+        }, { open: true });
+
+        panel('Fixed commitment', (body) => {
+          const hardRow = chipRow([
+            { id: 'flex', label: 'Flexible', value: false },
+            { id: 'hard', label: 'Landmark (meeting)', value: true },
+          ], {
+            value: draft.hard ? 'hard' : 'flex',
             onPick: (opt) => {
-              draft.status = opt.value;
-              for (const b of statusRow.querySelectorAll('.chip')) {
+              draft.hard = !!opt.value;
+              for (const b of hardRow.querySelectorAll('.chip')) {
                 b.classList.toggle('selected', b.dataset.id === opt.id);
               }
             },
-          },
-        );
-        statusSec.append(statusRow);
-        adv.append(statusSec);
-
-        // Hard commitment
-        const hardSec = el('div', { class: 'adv-section' },
-          el('span', { class: 'section-label', text: 'Fixed commitment' }));
-        const hardRow = chipRow([
-          { id: 'flex', label: 'Flexible', value: false },
-          { id: 'hard', label: 'Landmark (meeting)', value: true },
-        ], {
-          value: draft.hard ? 'hard' : 'flex',
-          onPick: (opt) => {
-            draft.hard = !!opt.value;
-            for (const b of hardRow.querySelectorAll('.chip')) {
-              b.classList.toggle('selected', b.dataset.id === opt.id);
-            }
-          },
+          });
+          body.append(hardRow);
         });
-        hardSec.append(hardRow);
-        adv.append(hardSec);
 
-        // Waiting for
-        const waitInput = el('input', {
-          type: 'text', class: 'step-text', value: draft.waitingFor,
-          placeholder: 'Who or what?', 'aria-label': 'Waiting for',
+        panel('Waiting for', (body) => {
+          const waitInput = el('input', {
+            type: 'text', class: 'step-text', value: draft.waitingFor,
+            placeholder: 'Who or what?', 'aria-label': 'Waiting for',
+          });
+          waitInput.addEventListener('input', () => { draft.waitingFor = waitInput.value; });
+          body.append(waitInput);
         });
-        waitInput.addEventListener('input', () => { draft.waitingFor = waitInput.value; });
-        adv.append(el('div', { class: 'adv-section' },
-          el('span', { class: 'section-label', text: 'Waiting for' }),
-          waitInput,
-        ));
 
-        // Source
-        const srcUrl = el('input', {
-          type: 'url', class: 'step-text', value: draft.sourceUrl,
-          placeholder: 'https://linear.app/…', 'aria-label': 'Source URL',
+        panel('Source link', (body) => {
+          const srcUrl = el('input', {
+            type: 'url', class: 'step-text', value: draft.sourceUrl,
+            placeholder: 'https://linear.app/…', 'aria-label': 'Source URL',
+          });
+          const srcLabel = el('input', {
+            type: 'text', class: 'step-text', value: draft.sourceLabel,
+            placeholder: 'Label (e.g. KOM-142)', 'aria-label': 'Source label',
+          });
+          srcUrl.addEventListener('input', () => { draft.sourceUrl = srcUrl.value; });
+          srcLabel.addEventListener('input', () => { draft.sourceLabel = srcLabel.value; });
+          body.append(srcUrl, srcLabel);
         });
-        const srcLabel = el('input', {
-          type: 'text', class: 'step-text', value: draft.sourceLabel,
-          placeholder: 'Label (e.g. KOM-142)', 'aria-label': 'Source label',
+
+        panel('Notes', (body) => {
+          const notes = el('textarea', { 'aria-label': 'Notes' });
+          notes.value = draft.notes;
+          notes.addEventListener('input', () => { draft.notes = notes.value; });
+          body.append(notes);
         });
-        srcLabel.classList.add('stack-gap');
-        srcUrl.addEventListener('input', () => { draft.sourceUrl = srcUrl.value; });
-        srcLabel.addEventListener('input', () => { draft.sourceLabel = srcLabel.value; });
-        adv.append(el('div', { class: 'adv-section' },
-          el('span', { class: 'section-label', text: 'Source link' }),
-          srcUrl, srcLabel,
-        ));
 
-        // Notes
-        const notes = el('textarea', { 'aria-label': 'Notes' });
-        notes.value = draft.notes;
-        notes.addEventListener('input', () => { draft.notes = notes.value; });
-        adv.append(el('div', { class: 'adv-section' },
-          el('span', { class: 'section-label', text: 'Notes' }),
-          notes,
-        ));
-
-        // Recurrence (compact)
-        const rule = draft.recurrenceRule;
-        const freqRow = chipRow([
-          { id: '', label: 'Doesn’t repeat', value: null },
-          ...Object.entries(FREQ_LABEL).slice(0, 5).map(([k, v]) => ({ id: k, label: v, value: k })),
-        ], {
-          value: rule?.freq || '',
-          onPick: (opt) => {
-            if (!opt.value) {
-              draft.recurrenceRule = null;
-            } else {
-              draft.recurrenceRule = {
-                freq: opt.value,
-                weekdays: rule?.weekdays || [],
-                n: rule?.n || 1,
-                unit: rule?.unit || 'days',
-                paused: false,
-              };
-            }
-            for (const b of freqRow.querySelectorAll('.chip')) {
-              b.classList.toggle('selected', b.dataset.id === opt.id);
-            }
-          },
-        });
-        adv.append(el('div', { class: 'adv-section' },
-          el('span', { class: 'section-label', text: 'Repeats' }),
-          freqRow,
-          rule && el('p', { class: 'field-hint', text: describeRule(rule) }),
-        ));
-
-        // Series controls if existing
-        if (action.recurrenceRule) {
-          const series = el('div', { class: 'chip-row stack-gap' });
-          series.append(
-            el('button', {
-              type: 'button', class: 'chip',
-              text: action.recurrenceRule.paused ? 'Resume series' : 'Pause series',
-              onclick: async () => {
-                const r = { ...action.recurrenceRule, paused: !action.recurrenceRule.paused };
-                draft.recurrenceRule = r;
-                await store.updateAction(action.id, { recurrenceRule: r }, { undoLabel: 'Series changed' });
-                announce(r.paused ? 'Series paused.' : 'Series resumed.');
-              },
-            }),
-            el('button', {
-              type: 'button', class: 'chip',
-              text: 'Skip this occurrence',
-              onclick: async () => {
-                const result = await store.skipRecurrence(action.id);
-                if (result?.spawned) {
-                  toast(`Skipped. Next: ${fmtWhen(new Date(result.spawned.scheduledFor), new Date())}.`, {
-                    undoText: 'Undo', onUndo: () => store.undo(),
-                  });
-                }
-                close(null);
-              },
-            }),
-          );
-          adv.append(series);
-        }
-
-        // Reminders
-        const remList = el('div', { class: 'adv-section' });
-        remList.append(el('span', { class: 'section-label', text: 'Reminders' }));
-        const remItems = el('div');
-        const renderRem = () => {
-          remItems.replaceChildren();
-          for (const r of draft.reminderRules) {
-            remItems.append(el('div', { class: 'rem-item' },
-              el('span', { text: r.at ? fmtWhen(new Date(r.at), new Date()) : 'when app opens' }),
+        panel('Repeats', (body) => {
+          const rule = draft.recurrenceRule;
+          const freqRow = chipRow([
+            { id: '', label: 'Doesn’t repeat', value: null },
+            ...Object.entries(FREQ_LABEL).slice(0, 5).map(([k, v]) => ({ id: k, label: v, value: k })),
+          ], {
+            value: rule?.freq || '',
+            onPick: (opt) => {
+              if (!opt.value) {
+                draft.recurrenceRule = null;
+              } else {
+                draft.recurrenceRule = {
+                  freq: opt.value,
+                  weekdays: rule?.weekdays || [],
+                  n: rule?.n || 1,
+                  unit: rule?.unit || 'days',
+                  paused: false,
+                };
+              }
+              for (const b of freqRow.querySelectorAll('.chip')) {
+                b.classList.toggle('selected', b.dataset.id === opt.id);
+              }
+            },
+          });
+          body.append(freqRow);
+          if (rule) body.append(el('p', { class: 'field-hint', text: describeRule(rule) }));
+          if (action.recurrenceRule) {
+            const series = el('div', { class: 'chip-row stack-gap' });
+            series.append(
               el('button', {
-                type: 'button', class: 'link-btn', text: 'remove',
-                onclick: () => {
-                  draft.reminderRules = draft.reminderRules.filter((x) => x.id !== r.id);
-                  renderRem();
+                type: 'button', class: 'chip',
+                text: action.recurrenceRule.paused ? 'Resume series' : 'Pause series',
+                onclick: async () => {
+                  const r = { ...action.recurrenceRule, paused: !action.recurrenceRule.paused };
+                  draft.recurrenceRule = r;
+                  await store.updateAction(action.id, { recurrenceRule: r }, { undoLabel: 'Series changed' });
+                  announce(r.paused ? 'Series paused.' : 'Series resumed.');
                 },
               }),
-            ));
+              el('button', {
+                type: 'button', class: 'chip',
+                text: 'Skip this occurrence',
+                onclick: async () => {
+                  const result = await store.skipRecurrence(action.id);
+                  if (result?.spawned) {
+                    toast(`Skipped. Next: ${fmtWhen(new Date(result.spawned.scheduledFor), new Date())}.`, {
+                      undoText: 'Undo', onUndo: () => store.undo(),
+                    });
+                  }
+                  close(null);
+                },
+              }),
+            );
+            body.append(series);
           }
-        };
-        renderRem();
-        const remChips = chipRow(
-          PRESETS.filter((p) => !['n_business_days'].includes(p.id)).map((p) => ({
-            id: p.id, label: p.label, value: p.id,
-          })),
-          {
-            numbered: false,
-            onPick: (opt) => {
-              const settings = store.getState().settings;
-              draft.reminderRules.push(makeRule(opt.value, new Date(), settings));
-              renderRem();
-            },
-          },
-        );
-        remList.append(remItems, remChips);
-        adv.append(remList);
+        });
 
-        // Delete
-        adv.append(el('div', { class: 'adv-section' },
-          el('button', {
+        panel('Reminders', (body) => {
+          const remItems = el('div');
+          const renderRem = () => {
+            remItems.replaceChildren();
+            for (const r of draft.reminderRules) {
+              remItems.append(el('div', { class: 'rem-item' },
+                el('span', { text: r.at ? fmtWhen(new Date(r.at), new Date()) : 'when app opens' }),
+                el('button', {
+                  type: 'button', class: 'link-btn', text: 'remove',
+                  onclick: () => {
+                    draft.reminderRules = draft.reminderRules.filter((x) => x.id !== r.id);
+                    renderRem();
+                  },
+                }),
+              ));
+            }
+          };
+          renderRem();
+          const remChips = chipRow(
+            PRESETS.filter((p) => !['n_business_days', 'custom'].includes(p.id)).map((p) => ({
+              id: p.id, label: p.label, value: p.id,
+            })),
+            {
+              numbered: false,
+              onPick: (opt) => {
+                const settings = store.getState().settings;
+                draft.reminderRules.push(makeRule(opt.value, new Date(), settings));
+                renderRem();
+              },
+            },
+          );
+          body.append(remItems, remChips);
+        });
+
+        panel('Delete', (body) => {
+          body.append(el('button', {
             type: 'button',
             class: 'act-btn danger',
-            text: 'Delete action',
+            text: 'Delete this action',
             onclick: async () => {
               if (await confirmDialog('Delete this action?', { confirmText: 'Delete', danger: true })) {
                 await store.deleteAction(action.id);
@@ -679,11 +682,10 @@ export function openShaper(action, { onDone = null, startStep = null } = {}) {
                 close(null);
               }
             },
-          }),
-        ));
+          }));
+        });
 
         step.append(adv);
-        currentPicker = statusRow;
 
         const doneBtn = el('button', {
           type: 'button',

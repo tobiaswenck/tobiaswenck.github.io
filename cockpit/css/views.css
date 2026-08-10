@@ -666,113 +666,221 @@ body.focusing #view, body.focusing .topbar, body.focusing #banners {
 /* ================= SHAPER ================= */
 
 .dialog.shaper-dialog {
-  max-width: 520px;
-  padding: var(--space-5);
+  max-width: min(560px, 100%);
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  height: auto;
+  padding: 18px 20px 14px;
+  min-height: 0;
+  overflow: hidden; /* step host scrolls, not the shell */
 }
 
 .shaper-title {
   font-size: var(--fs-md);
   color: var(--text);
-  margin-bottom: var(--space-1);
+  margin-bottom: 2px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.35;
+  flex: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .shaper-progress {
   font-size: var(--fs-xs);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--faint);
-  margin-bottom: var(--space-4);
+  margin-bottom: 10px;
+  flex: none;
 }
 
+/* Answered steps as a compact horizontal trail — not a tall stack */
 .shaper-summaries {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex: none;
+  max-height: 4.5em;
+  overflow-y: auto;
 }
 .shaper-summary {
-  display: flex;
+  display: inline-flex;
   align-items: baseline;
-  gap: var(--space-3);
-  padding: 5px 0;
-  font-size: var(--fs-base);
+  gap: 6px;
+  padding: 3px 9px;
+  font-size: var(--fs-sm);
   color: var(--muted);
-  border: none;
-  background: none;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
   text-align: left;
-  width: 100%;
   cursor: pointer;
-  border-radius: 4px;
-  transition: color var(--dur-fast) var(--ease);
+  border-radius: 999px;
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+  max-width: 100%;
 }
-.shaper-summary:hover { color: var(--text-2); }
+.shaper-summary:hover {
+  color: var(--text-2);
+  border-color: var(--line-strong);
+}
 .shaper-summary .sum-label {
-  font-size: var(--fs-xs);
-  letter-spacing: 0.12em;
+  font-size: 9px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--faint);
-  min-width: 72px;
+  flex: none;
 }
-.shaper-summary .sum-value { color: var(--text-2); }
+.shaper-summary .sum-value {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 14ch;
+}
+
+.shaper-step-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
 .shaper-step {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   animation: shaper-step-in var(--dur) var(--ease);
+  overflow: hidden;
 }
 @keyframes shaper-step-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
 .shaper-step .step-q {
-  font-size: var(--fs-xl);
+  font-size: clamp(16px, 2.2vw, 19px);
   font-weight: 600;
-  line-height: 1.35;
-  margin-bottom: var(--space-4);
+  line-height: 1.3;
+  margin-bottom: 10px;
   color: var(--text);
+  flex: none;
 }
 .shaper-step .step-hint {
   font-size: var(--fs-base);
   color: var(--muted);
-  margin-bottom: var(--space-3);
+  margin-bottom: 8px;
+  flex: none;
 }
-.shaper-step .step-body { margin-bottom: var(--space-4); }
+.shaper-step .step-body {
+  margin-bottom: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .shaper-step input.step-text {
   width: 100%;
   font-size: var(--fs-md);
-  padding: 10px 12px;
+  padding: 9px 12px;
 }
 
 .shaper-footer {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--line);
   font-size: var(--fs-sm);
   color: var(--faint);
+  flex: none;
 }
 .shaper-footer .spacer { flex: 1; }
 
+/* Advanced: accordion panels — default closed so the step fits the viewport */
 .shaper-advanced {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--line);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: none;
 }
 .shaper-advanced[hidden] { display: none; }
+
+.adv-panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  overflow: hidden;
+  flex: none;
+}
+.adv-panel[open] {
+  background: var(--surface-2);
+}
+.adv-panel > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 9px 12px;
+  font-size: var(--fs-base);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  user-select: none;
+}
+.adv-panel > summary::-webkit-details-marker { display: none; }
+.adv-panel > summary::after {
+  content: '+';
+  color: var(--faint);
+  font-size: 14px;
+  line-height: 1;
+}
+.adv-panel[open] > summary::after { content: '−'; }
+.adv-panel > summary:hover { color: var(--text); }
+.adv-panel-body {
+  padding: 0 12px 12px;
+}
+.adv-panel .chip-row { margin-top: 2px; }
+.adv-panel .step-text,
+.adv-panel textarea {
+  margin-top: 6px;
+}
+.adv-panel textarea {
+  min-height: 56px;
+  max-height: 96px;
+  width: 100%;
+}
+
 .shaper-advanced .adv-section {
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
 }
 .shaper-advanced .adv-section > .section-label {
-  display: block;
-  margin-bottom: var(--space-2);
+  display: none; /* label lives on the summary */
+}
+
+.shaper-save {
+  margin-top: 10px;
+  flex: none;
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 /* Settle */
 .shaper-settle {
   text-align: center;
-  padding: var(--space-6) var(--space-3);
+  padding: var(--space-5) var(--space-3);
   animation: settle-glow var(--dur-slow) var(--ease);
+  margin: auto 0;
 }
 .shaper-settle.settle-down {
   animation: settle-down var(--dur-slow) var(--ease);
@@ -837,9 +945,24 @@ body.focusing #view, body.focusing .topbar, body.focusing #banners {
 }
 .waiting-empty { margin-left: 0; }
 .act-btn.as-link { text-decoration: none; }
-.step-hint.spaced { margin-top: var(--space-4); }
-.shaper-continue { margin-top: var(--space-2); }
-.shaper-save { margin-top: var(--space-3); }
+.context-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+@media (min-width: 520px) {
+  .context-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px;
+    row-gap: 6px;
+  }
+  .context-meta > .step-hint { margin-bottom: 0; }
+  .context-pin {
+    display: contents; /* promote children into the grid */
+  }
+}
 .rem-item {
   display: flex;
   gap: 10px;
