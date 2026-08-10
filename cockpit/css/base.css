@@ -14,11 +14,13 @@
   --muted: #7e7e86;
   --faint: #505058;
 
-  --now: #e3c06b;        /* the current moment */
-  --done: #6fcf97;       /* movement that happened */
-  --wait: #56ccf2;       /* waiting on others */
-  --block: #f2994a;      /* blocked */
-  --risk: #f26f60;       /* needs a decision / overdue */
+  /* Semantic accents — amber = present, green = movement, cyan = waiting,
+     orange = blocked, red = decision/risk */
+  --now: #e3c06b;
+  --done: #6fcf97;
+  --wait: #56ccf2;
+  --block: #f2994a;
+  --risk: #f26f60;
   --quiet: #8e8e93;
 
   --dur-fast: 160ms;
@@ -27,6 +29,25 @@
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 
   --font: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale */
+  --fs-xs: 10px;
+  --fs-sm: 11px;
+  --fs-base: 12.5px;
+  --fs-md: 13.5px;
+  --fs-lg: 15px;
+  --fs-xl: 19px;
+  --fs-2xl: 22px;
+  --fs-3xl: 26px;
+
+  /* Spacing rhythm */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 34px;
+  --space-7: 44px;
 }
 
 * { box-sizing: border-box; }
@@ -312,13 +333,69 @@ a { color: var(--text-2); }
 .act-btn.danger:hover { border-color: var(--risk); color: var(--risk); }
 
 .link-btn {
-  font-size: 12px;
+  font-size: var(--fs-base);
   color: var(--muted);
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-color: var(--line-strong);
 }
 .link-btn:hover { color: var(--text-2); }
+
+/* ---------- Chips (choice vocabulary) ---------- */
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--fs-base);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+.chip:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+.chip:active { transform: scale(0.97); }
+.chip.selected {
+  border-color: var(--now);
+  color: var(--text);
+  background: color-mix(in srgb, var(--now) 12%, var(--surface-2));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--now) 25%, transparent);
+}
+.chip-num {
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  min-width: 0.9em;
+}
+.chip.selected .chip-num { color: var(--now); }
+
+.picker-block { margin-bottom: var(--space-2); }
+.picker-custom {
+  margin-top: var(--space-3);
+}
+.picker-custom input { width: 100%; max-width: 240px; }
+
+.section-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
 
 /* ---------- Dialogs ---------- */
 
@@ -437,7 +514,7 @@ a { color: var(--text-2); }
 /* ---------- Generic ---------- */
 
 .kbd {
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--muted);
   border: 1px solid var(--line);
   border-bottom-width: 2px;
@@ -446,17 +523,10 @@ a { color: var(--text-2); }
   background: var(--field);
 }
 
-.section-label {
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-
 hr.rule {
   border: none;
   border-top: 1px solid var(--line);
-  margin: 28px 0;
+  margin: var(--space-5) 0;
 }
 
 /* ---------- Motion discipline ---------- */

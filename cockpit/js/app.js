@@ -15,7 +15,7 @@ import { renderWeek } from './ui/week.js';
 import { renderWaiting } from './ui/waiting.js';
 import { renderReset, resetCandidates } from './ui/reset.js';
 import { openCapture, openInboxReview } from './ui/capture.js';
-import { openEditor } from './ui/editor.js';
+import { openShaper, openBeginGate } from './ui/shaper.js';
 import { openFocus, restoreFocus, isFocusing } from './ui/focus.js';
 import { isSameDay, weekKey, toDate, HOUR } from './timeutil.js';
 
@@ -52,14 +52,16 @@ function buildCtx() {
   return {
     now, timeState, momentum, recommendation,
     onBegin: beginAction,
-    onEdit: (a) => openEditor(a),
-    onCapture: () => openCapture({ onEdit: openEditor }),
+    onEdit: (a) => openShaper(a),
+    onCapture: () => openCapture({ onEdit: openShaper }),
     onGotoView: gotoView,
   };
 }
 
 function beginAction(action) {
-  openFocus(action, { onClose: () => render() });
+  openBeginGate(action, {
+    onContinue: (shaped) => openFocus(shaped || action, { onClose: () => render() }),
+  });
 }
 
 // ---------- rendering ----------
@@ -344,7 +346,7 @@ function wireChrome() {
     btn.addEventListener('click', () => gotoView(btn.dataset.view));
   }
 
-  document.getElementById('capture-btn').addEventListener('click', () => openCapture({ onEdit: openEditor }));
+  document.getElementById('capture-btn').addEventListener('click', () => openCapture({ onEdit: openShaper }));
 
   const menuBtn = document.getElementById('menu-btn');
   const menu = document.getElementById('menu');
@@ -370,7 +372,7 @@ function wireChrome() {
     menu.hidden = true;
     menuBtn.setAttribute('aria-expanded', 'false');
     switch (item.dataset.menu) {
-      case 'inbox': openInboxReview({ onEdit: openEditor }); break;
+      case 'inbox': openInboxReview({ onEdit: openShaper }); break;
       case 'export': exportJSON(); announce('Export downloaded.'); break;
       case 'import': document.getElementById('import-file').click(); break;
       case 'settings': openSettings(); break;
@@ -412,7 +414,7 @@ function wireChrome() {
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      openCapture({ onEdit: openEditor });
+      openCapture({ onEdit: openShaper });
     }
   });
 }

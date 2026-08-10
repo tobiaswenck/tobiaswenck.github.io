@@ -3,8 +3,8 @@
 
 import * as store from '../store.js';
 import { el, announce, toast, openDialog, leaveThen } from './dom.js';
-import { toLocalInput } from './flows.js';
-import { fmtDaysSince, fmtWhen, toDate, atTime, addDays, addBusinessDays, startOfDay } from '../timeutil.js';
+import { chipRow } from './pickers.js';
+import { fmtDaysSince, fmtWhen, toDate, atTime, addBusinessDays } from '../timeutil.js';
 
 export function renderWaiting(container, ctx) {
   const { now, onBegin, onEdit } = ctx;
@@ -22,7 +22,7 @@ export function renderWaiting(container, ctx) {
 
   if (!items.length) {
     container.append(
-      el('div', { class: 'clear-state', style: 'margin-left:0;' },
+      el('div', { class: 'clear-state waiting-empty' },
         el('p', { class: 'clear-line', text: 'Nothing is waiting on anyone.' }),
         el('p', { class: 'clear-sub', text: 'When you hand something off, it lands here instead of nagging you.' }),
       ),
@@ -62,8 +62,8 @@ export function renderWaiting(container, ctx) {
         }),
         el('button', { class: 'act-btn', text: 'Follow up now', onclick: () => onBegin(a) }),
         el('button', { class: 'act-btn', text: 'Snooze follow-up', onclick: () => snoozeFollowUp(a) }),
-        a.sourceRef?.url && el('a', { class: 'act-btn', href: a.sourceRef.url, target: '_blank', rel: 'noopener', text: 'Open source ↗', style: 'text-decoration:none;' }),
-        el('button', { class: 'act-btn', text: 'Edit', onclick: () => onEdit(a) }),
+        a.sourceRef?.url && el('a', { class: 'act-btn as-link', href: a.sourceRef.url, target: '_blank', rel: 'noopener', text: 'Open source ↗' }),
+        el('button', { class: 'act-btn', text: 'Shape', onclick: () => onEdit(a) }),
       ),
     );
     container.append(row);
@@ -73,42 +73,53 @@ export function renderWaiting(container, ctx) {
 function snoozeFollowUp(action) {
   const now = new Date();
   const settings = store.getState().settings;
-  const options = [
-    { label: 'Tomorrow', date: atTime(addDays(startOfDay(now), 1), settings.workStart) },
-    { label: 'In 2 workdays', date: atTime(addBusinessDays(now, 2), settings.workStart) },
-    { label: 'Next week', date: atTime(addDays(startOfDay(now), (8 - now.getDay()) % 7 || 7), settings.workStart) },
-  ];
   openDialog({
     title: 'Push the follow-up',
     hint: action.title,
     build(dialog, close) {
-      const wrap = el('div', { style: 'display:flex; flex-wrap:wrap; gap:8px;' });
-      for (const o of options) {
-        wrap.append(el('button', {
-          class: 'act-btn', text: o.label,
-          onclick: async () => {
-            await store.updateAction(action.id, { followUpAt: o.date.toISOString() }, { undoLabel: 'Follow-up snoozed' });
-            announce(`Follow-up moved to ${o.label.toLowerCase()}.`);
-            close();
-          },
-        }));
-      }
-      const custom = el('input', { type: 'datetime-local', value: toLocalInput(toDate(action.followUpAt) || options[0].date), style: 'width:100%; margin-top:12px;' });
+      const options = [
+        { id: 'tomorrow', label: 'Tomorrow', value: () => atTime(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1), settings.workStart) },
+        { id: '2bd', label: 'In 2 workdays', value: () => atTime(addBusinessDays(now, 2), settings.workStart) },
+        { id: 'week', label: 'Next week', value: () => atTime(new Date(now.getFullYear(), now.getMonth(), now.getDate() + ((8 - now.getDay()) % 7 || 7)), settings.workStart) },
+        { id: 'custom', label: 'Pick a moment…', value: 'custom' },
+      ];
+      const customWrap = el('div', { class: 'picker-custom', hidden: true });
+      const customInput = el('input', { type: 'datetime-local', 'aria-label': 'Custom follow-up' });
+      customWrap.append(customInput);
+
+      const row = chipRow(options, {
+        onPick: async (opt) => {
+          if (opt.value === 'custom') {
+            customWrap.hidden = false;
+            customInput.focus();
+            return;
+          }
+          const date = opt.value();
+          await store.updateAction(action.id, { followUpAt: date.toISOString() }, { undoLabel: 'Follow-up snoozed' });
+          announce(`Follow-up moved to ${opt.label.toLowerCase()}.`);
+          close();
+        },
+      });
+      customInput.addEventListener('change', async () => {
+        if (!customInput.value) return;
+        await store.updateAction(action.id, { followUpAt: new Date(customInput.value).toISOString() }, { undoLabel: 'Follow-up moved' });
+        announce('Follow-up updated.');
+        close();
+      });
+
       dialog.append(
-        wrap,
-        el('div', { class: 'field-row', style: 'margin-top:14px;' }, el('label', { text: 'Or pick a moment' }), custom),
+        row,
+        customWrap,
         el('div', { class: 'dialog-footer' },
-          el('button', { class: 'act-btn', text: 'Remove follow-up', onclick: async () => { await store.updateAction(action.id, { followUpAt: null }, { undoLabel: 'Follow-up removed' }); close(); } }),
-          el('span', { class: 'spacer' }),
-          el('button', { class: 'act-btn', text: 'Cancel', onclick: () => close() }),
           el('button', {
-            class: 'act-btn primary', text: 'Save',
+            class: 'link-btn', text: 'Remove follow-up',
             onclick: async () => {
-              if (!custom.value) return;
-              await store.updateAction(action.id, { followUpAt: new Date(custom.value).toISOString() }, { undoLabel: 'Follow-up moved' });
+              await store.updateAction(action.id, { followUpAt: null }, { undoLabel: 'Follow-up removed' });
               close();
             },
           }),
+          el('span', { class: 'spacer' }),
+          el('button', { class: 'link-btn', text: 'Cancel', onclick: () => close() }),
         ),
       );
     },

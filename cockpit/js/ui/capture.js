@@ -1,5 +1,5 @@
-// Quick capture (Ctrl/Cmd+K): raw text in, inbox item out. Nothing else
-// is required — a thought is not automatically a commitment.
+// Quick capture (Ctrl/Cmd+K): raw text in, inbox item out.
+// After save, Tab opens the shaper on the just-captured item.
 
 import * as store from '../store.js';
 import { el, openDialog, announce } from './dom.js';
@@ -10,6 +10,8 @@ let captureOpen = false;
 export function openCapture({ onEdit } = {}) {
   if (captureOpen) return;
   captureOpen = true;
+
+  let lastCaptured = null;
 
   openDialog({
     className: 'capture-dialog',
@@ -31,19 +33,38 @@ export function openCapture({ onEdit } = {}) {
         const sourceRef = url.value.trim()
           ? { type: guessSource(url.value), externalId: null, url: url.value.trim(), label: guessSource(url.value) }
           : null;
-        await store.addAction({ title, status: 'inbox', sourceRef });
+        const action = await store.addAction({ title, status: 'inbox', sourceRef });
+        lastCaptured = action;
         input.value = '';
         url.value = '';
-        confirm.textContent = `“${shorten(title)}” landed in the inbox.`;
-        announce('Captured to inbox.');
+        confirm.replaceChildren();
+        confirm.append(
+          document.createTextNode(`“${shorten(title)}” landed in the inbox.`),
+          el('span', { class: 'shape-affordance' },
+            el('span', { class: 'kbd', text: 'Tab' }),
+            ' to shape',
+          ),
+        );
+        announce('Captured to inbox. Press Tab to shape.');
         input.focus();
+      }
+
+      function tryShape(e) {
+        if (e.key !== 'Tab' || !lastCaptured) return;
+        e.preventDefault();
+        const target = lastCaptured;
+        lastCaptured = null;
+        close();
+        onEdit && onEdit(store.getAction(target.id) || target);
       }
 
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); save(); }
+        else tryShape(e);
       });
       url.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); save(); }
+        else tryShape(e);
       });
 
       dialog.append(
@@ -51,7 +72,11 @@ export function openCapture({ onEdit } = {}) {
         el('div', { class: 'capture-extra' }, url),
         confirm,
         el('div', { class: 'capture-footer' },
-          el('span', {}, el('span', { class: 'kbd', text: 'Enter' }), ' saves · ', el('span', { class: 'kbd', text: 'Esc' }), ' closes'),
+          el('span', {},
+            el('span', { class: 'kbd', text: 'Enter' }), ' saves · ',
+            el('span', { class: 'kbd', text: 'Tab' }), ' shapes · ',
+            el('span', { class: 'kbd', text: 'Esc' }), ' closes',
+          ),
           el('span', { text: 'Inbox, not obligation.' }),
         ),
       );
@@ -79,23 +104,26 @@ function shorten(s) {
 export function openInboxReview({ onEdit }) {
   openDialog({
     title: 'Inbox',
-    hint: 'Raw thoughts. Decide what each one becomes — or let Reset walk you through them.',
+    hint: 'Raw thoughts. Shape them, or let Reset walk you through.',
     build(dialog, close) {
       const items = store.getState().actions.filter((a) => a.status === 'inbox');
       if (!items.length) {
-        dialog.append(el('p', { style: 'color: var(--muted); font-size: 13px;', text: 'Inbox is empty.' }));
+        dialog.append(el('p', { class: 'field-hint', text: 'Inbox is empty.' }));
       }
       for (const a of items) {
         const row = el('div', { class: 'inbox-row' },
           el('span', { class: 'title', text: a.title }),
           el('span', { class: 'actions' },
             el('button', {
+              class: 'act-btn primary', text: 'Shape',
+              onclick: () => { close(); onEdit(a); },
+            }),
+            el('button', {
               class: 'act-btn', text: 'Ready',
-              title: 'Make it an actionable item',
+              title: 'Make it actionable without shaping',
               onclick: async () => { await store.updateAction(a.id, { status: 'ready' }, { undoLabel: 'Made ready' }); row.remove(); },
             }),
             el('button', { class: 'act-btn', text: 'Schedule…', onclick: () => { close(); scheduleFlow(a); } }),
-            el('button', { class: 'act-btn', text: 'Edit', onclick: () => { close(); onEdit(a); } }),
             el('button', { class: 'act-btn danger', text: 'Drop', onclick: () => dropFlow(a, row) }),
           ),
         );

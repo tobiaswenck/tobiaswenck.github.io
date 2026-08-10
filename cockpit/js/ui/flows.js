@@ -4,9 +4,10 @@
 
 import * as store from '../store.js';
 import { el, toast, openDialog, announce, leaveThen } from './dom.js';
-import { atTime, addDays, addBusinessDays, nextWorkday, startOfDay, fmtWhen, fmtShortDate } from '../timeutil.js';
+import { atTime, addBusinessDays, fmtWhen, fmtShortDate } from '../timeutil.js';
 import { computeMomentum } from '../momentum.js';
 import { makeRule, PRESETS } from '../reminders.js';
+import { whenPicker, chipRow, toLocalInput } from './pickers.js';
 
 function undoToast(message) {
   toast(message, {
@@ -37,8 +38,6 @@ function consequenceFor(action, spawned) {
   return 'That’s handled.';
 }
 
-// Completes the action, animates it into history, then (when appropriate)
-// asks whether this creates another action.
 export function completeFlow(action, node, { askFollowUp = null } = {}) {
   leaveThen(node, 'up', async () => {
     const result = await store.completeAction(action.id);
@@ -57,22 +56,19 @@ function followUpPrompt(action) {
     title: 'Does this create another action?',
     hint: action.title,
     build(dialog, close) {
-      const mk = (label, fn) => el('button', { class: 'act-btn', text: label, onclick: () => { close(); fn && fn(); } });
+      const options = [
+        { id: 'none', label: 'No follow-up', fn: null },
+        { id: 'next', label: 'Add next action', fn: () => nextActionDialog(action) },
+        { id: 'wait', label: 'Move to Waiting', fn: () => waitingCreateDialog(action) },
+        { id: 'remind', label: 'Add follow-up reminder', fn: () => followUpReminderDialog(action) },
+      ];
       dialog.append(
-        el('div', { class: 'reset-card' },
-          el('div', { class: 'r-options' },
-            mk('No follow-up', null),
-            mk('Add next action', () => {
-              nextActionDialog(action);
-            }),
-            mk('Move to Waiting', () => {
-              waitingCreateDialog(action);
-            }),
-            mk('Add follow-up reminder', () => {
-              followUpReminderDialog(action);
-            }),
-          ),
-        ),
+        chipRow(options, {
+          numbered: true,
+          onPick: (opt) => { close(); opt.fn && opt.fn(); },
+        }),
+        el('div', { class: 'dialog-footer' },
+          el('button', { class: 'link-btn', text: 'Cancel', onclick: () => close() })),
       );
     },
   });
@@ -148,12 +144,13 @@ function followUpReminderDialog(source) {
   const settings = store.getState().settings;
   openDialog({
     title: 'Remind me to follow up',
+    hint: source.title,
     build(dialog, close) {
-      for (const p of PRESETS.filter((x) => !['n_business_days', 'custom'].includes(x.id))) {
-        dialog.append(el('button', {
-          class: 'act-btn', text: p.label, style: 'margin: 0 8px 8px 0;',
-          onclick: async () => {
-            const rule = makeRule(p.id, now, settings);
+      const presets = PRESETS.filter((x) => !['n_business_days', 'custom'].includes(x.id));
+      dialog.append(
+        chipRow(presets.map((p) => ({ id: p.id, label: p.label, value: p.id })), {
+          onPick: async (opt) => {
+            const rule = makeRule(opt.value, now, settings);
             await store.addAction({
               title: `Follow up: ${source.title}`,
               type: 'followUp',
@@ -165,10 +162,10 @@ function followUpReminderDialog(source) {
             announce('Follow-up reminder set.');
             close();
           },
-        }));
-      }
-      dialog.append(el('div', { class: 'dialog-footer' },
-        el('button', { class: 'act-btn', text: 'Cancel', onclick: () => close() })));
+        }),
+        el('div', { class: 'dialog-footer' },
+          el('button', { class: 'link-btn', text: 'Cancel', onclick: () => close() })),
+      );
     },
   });
 }
@@ -178,40 +175,32 @@ function followUpReminderDialog(source) {
 export function snoozeFlow(action, node) {
   const now = new Date();
   const settings = store.getState().settings;
-  const options = [
-    { label: 'Later today', date: new Date(now.getTime() + 3 * 3600000) },
-    { label: 'Tomorrow', date: atTime(addDays(startOfDay(now), 1), settings.workStart) },
-    { label: 'Next workday', date: atTime(nextWorkday(now), settings.workStart) },
-    { label: 'Next week', date: atTime(addDays(startOfDay(now), (8 - now.getDay()) % 7 || 7), settings.workStart) },
-  ];
   openDialog({
     title: 'Move this later',
     hint: action.title,
     build(dialog, close) {
-      const wrap = el('div', { class: 'r-options', style: 'display:flex; flex-wrap:wrap; gap:8px;' });
-      for (const opt of options) {
-        wrap.append(el('button', {
-          class: 'act-btn', text: opt.label,
-          onclick: () => { close(); doSnooze(opt.date, opt.label); },
-        }));
-      }
-      const custom = el('input', { type: 'datetime-local', style: 'margin-top:12px; width:100%;' });
+      const picker = whenPicker({
+        mode: 'snooze',
+        settings,
+        now,
+        onPick: (date, opt) => {
+          if (!(date instanceof Date)) return;
+          close();
+          doSnooze(date, opt?.label || fmtWhen(date, now));
+        },
+      });
       dialog.append(
-        wrap,
-        el('div', { class: 'field-row', style: 'margin-top:14px;' },
-          el('label', { text: 'Or pick a moment' }), custom),
+        picker,
         el('div', { class: 'dialog-footer' },
-          el('button', { class: 'act-btn', text: 'Cancel', onclick: () => close() }),
-          el('button', {
-            class: 'act-btn primary', text: 'Snooze',
-            onclick: () => {
-              if (!custom.value) return;
-              const d = new Date(custom.value);
-              close(); doSnooze(d, fmtWhen(d, now));
-            },
-          }),
-        ),
+          el('button', { class: 'link-btn', text: 'Cancel', onclick: () => close() })),
       );
+
+      dialog.addEventListener('keydown', (e) => {
+        if (/^[1-9]$/.test(e.key) && e.target.tagName !== 'INPUT') {
+          e.preventDefault();
+          picker._pickByIndex?.(Number(e.key) - 1);
+        }
+      });
     },
   });
 
@@ -237,15 +226,46 @@ export function waitingFlow(action, node) {
     hint: 'Waiting means someone or something else has to respond. It leaves your active stream.',
     build(dialog, close) {
       const who = el('input', { type: 'text', value: action.waitingFor || '', placeholder: 'Who or what are you waiting on?', 'data-autofocus': '' });
-      const followToggle = el('input', { type: 'checkbox', checked: true, id: 'w-follow-toggle', style: 'width:auto; margin-right:8px;' });
-      const followDate = el('input', { type: 'datetime-local', value: toLocalInput(suggested) });
+      let followAt = suggested;
+      let followOn = true;
+
+      const followChips = chipRow([
+        { id: 'yes', label: `Follow up ${fmtShortDate(suggested)}`, value: true },
+        { id: 'no', label: 'No follow-up', value: false },
+        { id: 'custom', label: 'Pick date…', value: 'custom' },
+      ], {
+        value: 'yes',
+        onPick: (opt) => {
+          if (opt.value === 'custom') {
+            customWrap.hidden = false;
+            customInput.focus();
+            return;
+          }
+          customWrap.hidden = true;
+          followOn = !!opt.value;
+          followAt = suggested;
+          for (const b of followChips.querySelectorAll('.chip')) {
+            b.classList.toggle('selected', b.dataset.id === opt.id);
+          }
+        },
+      });
+
+      const customWrap = el('div', { class: 'picker-custom', hidden: true });
+      const customInput = el('input', { type: 'datetime-local', value: toLocalInput(suggested) });
+      customInput.addEventListener('change', () => {
+        if (customInput.value) {
+          followOn = true;
+          followAt = new Date(customInput.value);
+        }
+      });
+      customWrap.append(customInput);
+
       dialog.append(
         el('div', { class: 'field-row' }, el('label', { text: 'Waiting for' }), who),
         el('div', { class: 'field-row' },
-          el('label', { for: 'w-follow-toggle', style: 'display:flex; align-items:center; cursor:pointer;' },
-            followToggle, 'Follow up if nothing happens'),
-          followDate,
-          el('p', { class: 'field-hint', text: `Suggested: ${fmtShortDate(suggested)} (two workdays)` }),
+          el('label', { text: 'Follow up' }),
+          followChips,
+          customWrap,
         ),
         el('div', { class: 'dialog-footer' },
           el('button', { class: 'act-btn', text: 'Cancel', onclick: () => close() }),
@@ -256,7 +276,7 @@ export function waitingFlow(action, node) {
               leaveThen(node, 'side', async () => {
                 await store.moveToWaiting(action.id, {
                   waitingFor: who.value.trim(),
-                  followUpAt: followToggle.checked && followDate.value ? new Date(followDate.value) : null,
+                  followUpAt: followOn ? followAt : null,
                 });
                 const msg = `Waiting on ${who.value.trim() || 'a response'} — off your plate for now.`;
                 announce(msg);
@@ -266,7 +286,6 @@ export function waitingFlow(action, node) {
           }),
         ),
       );
-      followToggle.addEventListener('change', () => { followDate.disabled = !followToggle.checked; });
     },
   });
 }
@@ -305,32 +324,38 @@ export function blockFlow(action, node) {
 
 export function scheduleFlow(action, node = null) {
   const now = new Date();
+  const settings = store.getState().settings;
   openDialog({
     title: 'When should this happen?',
     hint: action.title,
     build(dialog, close) {
-      const input = el('input', { type: 'datetime-local', value: toLocalInput(action.scheduledFor ? new Date(action.scheduledFor) : atTime(nextWorkday(now), store.getState().settings.workStart)), 'data-autofocus': '' });
+      const picker = whenPicker({
+        mode: 'schedule',
+        settings,
+        now,
+        onPick: (date) => {
+          if (!(date instanceof Date)) return;
+          close();
+          const apply = async () => {
+            await store.scheduleAction(action.id, date);
+            const msg = `Scheduled for ${fmtWhen(date, now)}.`;
+            announce(msg);
+            undoToast(msg);
+          };
+          if (node) leaveThen(node, 'down', apply); else apply();
+        },
+      });
       dialog.append(
-        el('div', { class: 'field-row' }, input),
+        picker,
         el('div', { class: 'dialog-footer' },
-          el('button', { class: 'act-btn', text: 'Cancel', onclick: () => close() }),
-          el('button', {
-            class: 'act-btn primary', text: 'Schedule',
-            onclick: () => {
-              if (!input.value) return;
-              const d = new Date(input.value);
-              close();
-              const apply = async () => {
-                await store.scheduleAction(action.id, d);
-                const msg = `Scheduled for ${fmtWhen(d, now)}.`;
-                announce(msg);
-                undoToast(msg);
-              };
-              if (node) leaveThen(node, 'down', apply); else apply();
-            },
-          }),
-        ),
+          el('button', { class: 'link-btn', text: 'Cancel', onclick: () => close() })),
       );
+      dialog.addEventListener('keydown', (e) => {
+        if (/^[1-9]$/.test(e.key) && e.target.tagName !== 'INPUT') {
+          e.preventDefault();
+          picker._pickByIndex?.(Number(e.key) - 1);
+        }
+      });
     },
   });
 }
@@ -346,10 +371,4 @@ export function dropFlow(action, node) {
   });
 }
 
-// ---------- helpers ----------
-
-export function toLocalInput(d) {
-  if (!d) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+export { toLocalInput };

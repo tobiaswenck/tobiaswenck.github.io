@@ -78,7 +78,7 @@ export function renderReset(container, ctx) {
   const card = el('div', { class: 'reset-card' },
     el('p', { class: 'r-kicker', text: reason }),
     el('h2', { class: 'r-title' },
-      el('button', { style: 'all:inherit; cursor:pointer;', text: a.title, title: 'Open details', onclick: () => onEdit(a) })),
+      el('button', { class: 'title-btn', text: a.title, title: 'Shape', onclick: () => onEdit(a) })),
     a.project && el('p', { class: 'r-why', text: a.project }),
   );
 
@@ -87,7 +87,11 @@ export function renderReset(container, ctx) {
   card.append(
     el('div', { class: 'r-options' },
       el('button', {
-        class: 'act-btn primary', text: 'Keep active',
+        class: 'act-btn primary', text: 'Shape',
+        onclick: () => onEdit(a),
+      }),
+      el('button', {
+        class: 'act-btn', text: 'Keep active',
         onclick: () => decide('Kept active.', () =>
           store.updateAction(a.id, { status: 'ready', snoozedUntil: null, scheduledFor: null }, { undoLabel: 'Kept active' })),
       }),

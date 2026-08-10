@@ -11,6 +11,7 @@ import {
 } from '../timeutil.js';
 import { TYPE_LABEL, actionMinutes, isOpen } from '../model.js';
 import { MOMENTUM_LABEL } from '../momentum.js';
+import { unshapedHint } from './shaper.js';
 
 const MOVE_KINDS = ['completed', 'decision', 'unblocked', 'response'];
 
@@ -92,7 +93,7 @@ export function renderNow(container, ctx) {
   const waitingCount = actions.filter((a) => a.status === 'waiting').length;
   if (waitingCount) {
     container.append(
-      el('p', { style: 'margin-top: 30px; font-size: 12.5px;' },
+      el('p', { class: 'week-link' },
         el('button', {
           class: 'link-btn',
           text: `${waitingCount} thing${waitingCount > 1 ? 's are' : ' is'} waiting on others →`,
@@ -317,21 +318,23 @@ const KICKER = {
 function renderRecommendation(primary, ts, { onBegin, onEdit }) {
   const a = primary.action;
   const mins = actionMinutes(a);
+  const hint = unshapedHint(a);
   const block = el('div', { class: 'now-block' },
     el('p', { class: 'rec-kicker', text: KICKER[ts.id] || 'What needs you now' }),
     el('h2', { class: 'rec-title' },
       el('button', {
-        class: 'rec-title', style: 'all:inherit; cursor:pointer; padding:0;',
+        class: 'title-btn',
         text: a.title,
-        title: 'Open details',
+        title: 'Shape this action',
         onclick: () => onEdit(a),
       }),
     ),
     el('p', { class: 'rec-meta' },
-      el('span', { text: `≈ ${fmtDuration(mins)}` }),
+      el('span', { text: a.estimateMinutes != null ? `≈ ${fmtDuration(mins)}` : 'duration?' }),
       a.project && el('span', { text: a.project }),
       el('span', { text: TYPE_LABEL[a.type] }),
       a.sourceRef?.url && el('a', { href: a.sourceRef.url, target: '_blank', rel: 'noopener', text: a.sourceRef.label || a.sourceRef.type }),
+      hint && el('span', { class: 'unshaped-cue', text: hint }),
     ),
     el('p', { class: 'rec-why', text: primary.reasons.join(' ') }),
     a.definitionOfDone && el('p', { class: 'rec-dod', text: `Done when: ${a.definitionOfDone}` }),
@@ -342,6 +345,7 @@ function renderRecommendation(primary, ts, { onBegin, onEdit }) {
     el('button', { class: 'act-btn', text: 'Done', title: 'Already handled', onclick: () => completeFlow(a, block) }),
     el('button', { class: 'act-btn', text: 'Later', onclick: () => snoozeFlow(a, block) }),
     el('button', { class: 'act-btn', text: 'Waiting…', onclick: () => waitingFlow(a, block) }),
+    el('button', { class: 'link-btn', text: 'Shape', onclick: () => onEdit(a) }),
   );
   block.append(actionsRow);
   return block;
@@ -425,7 +429,7 @@ function renderUpcomingRow(a, now, { onBegin, onEdit }) {
   } else {
     r.querySelector('.spine-body').append(
       el('span', { class: 'row-actions' },
-        el('button', { text: 'Edit', onclick: () => onEdit(a) })),
+        el('button', { text: 'Shape', onclick: () => onEdit(a) })),
     );
   }
   return r;
@@ -442,10 +446,12 @@ function renderLaterRow(a, now, { onBegin, onEdit }) {
 }
 
 function rowActions(a, rowNode, { onBegin, onEdit }) {
+  const hint = unshapedHint(a);
   return el('span', { class: 'row-actions' },
+    hint && el('span', { class: 'unshaped-cue', text: hint }),
     el('button', { text: 'Begin', onclick: () => onBegin(a) }),
     el('button', { text: 'Done', onclick: () => completeFlow(a, rowNode) }),
     el('button', { text: 'Later', onclick: () => snoozeFlow(a, rowNode) }),
-    el('button', { text: 'Edit', onclick: () => onEdit(a) }),
+    el('button', { text: 'Shape', onclick: () => onEdit(a) }),
   );
 }

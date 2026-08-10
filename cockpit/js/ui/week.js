@@ -45,7 +45,7 @@ export function renderWeek(container, ctx) {
       const items = itemsForDay(actions, day)
         .sort((a, b) => (a.scheduledFor || a.dueAt || '').localeCompare(b.scheduledFor || b.dueAt || ''));
       if (!items.length) {
-        body.append(el('p', { style: 'color: var(--faint); font-size: 12px;', text: isToday ? 'Nothing more planned today.' : 'Open.' }));
+        body.append(el('p', { class: 'day-empty', text: isToday ? 'Nothing more planned today.' : 'Open.' }));
       }
       for (const a of items.slice(0, 7)) {
         const d = toDate(a.scheduledFor);
@@ -56,12 +56,9 @@ export function renderWeek(container, ctx) {
         if (!a.hard) {
           rowEl.append(el('span', { class: 'row-actions' },
             el('button', { text: 'Move', onclick: () => scheduleFlow(a) }),
-            el('button', { text: 'Edit', onclick: () => onEdit(a) }),
+            el('button', { text: 'Shape', onclick: () => onEdit(a) }),
           ));
-          rowEl.classList.add('spine-row'); // reuse hover-reveal behavior
-          rowEl.style.display = 'flex';
-          rowEl.style.gridTemplateColumns = '';
-          rowEl.style.padding = '2px 0';
+          rowEl.classList.add('spine-row');
         }
         body.append(rowEl);
       }
@@ -109,7 +106,7 @@ export function renderWeek(container, ctx) {
     for (const m of blockedOrWaiting.slice(0, 6)) {
       sec.append(el('div', { class: 'ws-row' },
         el('span', { text: m.project }),
-        el('span', { class: `mstate ${m.state}`, style: 'font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;', text: MOMENTUM_LABEL[m.state] }),
+        el('span', { class: `mstate ${m.state}`, text: MOMENTUM_LABEL[m.state] }),
         el('span', { class: 'why', text: m.detail }),
       ));
     }
@@ -118,7 +115,7 @@ export function renderWeek(container, ctx) {
 
   const waitingCount = actions.filter((a) => a.status === 'waiting').length;
   if (waitingCount) {
-    container.append(el('p', { style: 'margin-top: 24px; font-size: 12.5px;' },
+    container.append(el('p', { class: 'week-link' },
       el('button', { class: 'link-btn', text: `${waitingCount} item${waitingCount > 1 ? 's' : ''} waiting on others →`, onclick: () => onGotoView('waiting') })));
   }
 
@@ -163,7 +160,7 @@ function renderHandoff(now) {
   });
 
   return el('section', { class: 'handoff' },
-    el('span', { class: 'section-label', style: 'display:block; margin-bottom: 10px;', text: 'What should Monday-you know?' }),
+    el('span', { class: 'section-label', text: 'What should Monday-you know?' }),
     area,
     saved,
   );
